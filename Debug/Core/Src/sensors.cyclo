@@ -1,0 +1,12 @@
+../Core/Src/sensors.c:19:6:Sensor_Init	2
+../Core/Src/sensors.c:33:9:Sensor_UpdateCAN	8
+../Core/Src/sensors.c:91:6:Sensor_UpdateADC	3
+../Core/Src/sensors.c:121:21:Sensor_GetData	1
+../Core/Src/sensors.c:126:9:Sensor_GetCANChannel	5
+../Core/Src/sensors.c:149:9:Sensor_GetTemperature	4
+../Core/Src/sensors.c:171:9:Sensor_IsCANDataValid	2
+../Core/Src/sensors.c:177:9:Sensor_IsTempSensorFault	2
+../Core/Src/sensors.c:185:9:Sensor_CheckTimeout	3
+../Core/Src/sensors.c:208:24:u16le	1
+../Core/Src/sensors.c:217:14:temp_raw_to_celsius	1
+../Core/Src/sensors.c:232:13:check_temp_sensor_fault	6

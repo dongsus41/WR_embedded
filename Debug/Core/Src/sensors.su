@@ -1,0 +1,12 @@
+../Core/Src/sensors.c:19:6:Sensor_Init	16	static
+../Core/Src/sensors.c:33:9:Sensor_UpdateCAN	48	static,ignoring_inline_asm
+../Core/Src/sensors.c:91:6:Sensor_UpdateADC	48	static,ignoring_inline_asm
+../Core/Src/sensors.c:121:21:Sensor_GetData	4	static
+../Core/Src/sensors.c:126:9:Sensor_GetCANChannel	40	static,ignoring_inline_asm
+../Core/Src/sensors.c:149:9:Sensor_GetTemperature	32	static,ignoring_inline_asm
+../Core/Src/sensors.c:171:9:Sensor_IsCANDataValid	4	static
+../Core/Src/sensors.c:177:9:Sensor_IsTempSensorFault	16	static
+../Core/Src/sensors.c:185:9:Sensor_CheckTimeout	24	static
+../Core/Src/sensors.c:208:24:u16le	16	static
+../Core/Src/sensors.c:217:14:temp_raw_to_celsius	24	static
+../Core/Src/sensors.c:232:13:check_temp_sensor_fault	168	static

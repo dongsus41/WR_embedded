@@ -1,0 +1,15 @@
+../Core/Src/emc2303.c:56:24:emc_pwm_base_hz	5
+../Core/Src/emc2303.c:71:23:emc2303_ch_base	1
+../Core/Src/emc2303.c:77:13:emc_w8	2
+../Core/Src/emc2303.c:83:13:emc_r8	2
+../Core/Src/emc2303.c:90:16:emc_mask_lsb_shift	3
+../Core/Src/emc2303.c:112:13:emc_upd_bits	2
+../Core/Src/emc2303.c:133:13:emc_set_base	2
+../Core/Src/emc2303.c:152:6:EMC2303_Init	8
+../Core/Src/emc2303.c:218:6:EMC2303_SetDutyPct	4
+../Core/Src/emc2303.c:240:6:EMC2303_EnableClosedLoopRPM	4
+../Core/Src/emc2303.c:274:6:EMC2303_ReadRPM	4
+../Core/Src/emc2303.c:310:6:Fans6_Init	1
+../Core/Src/emc2303.c:316:6:Fan6_SetDuty	2
+../Core/Src/emc2303.c:327:6:Fan6_EnableRPM	2
+../Core/Src/emc2303.c:338:6:Fan6_ReadRPM	2
