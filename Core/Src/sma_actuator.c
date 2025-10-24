@@ -62,8 +62,6 @@ void SMA_Init(uint32_t control_period_ms)
     SMA_InitPWM();
 
     sma_ctrl.initialized = 1;
-
-    REPORT_INFO_MSG("SMA Actuator Controller Initialized");
 }
 
 int32_t SMA_SetMode(uint8_t ch, SMA_ControlMode_t mode)
@@ -417,7 +415,6 @@ static void SMA_SafetyCheck(uint8_t ch)
     else if (channel->current_temp < (SMA_TEMP_MAX_SAFE - 5.0f)) {
         if (channel->overtemp_flag) {
             channel->overtemp_flag = 0;
-            REPORT_INFO_MSG("Temp normal - resume");
         }
     }
 }

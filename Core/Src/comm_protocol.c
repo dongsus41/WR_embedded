@@ -46,8 +46,6 @@ void Comm_Init(UART_HandleTypeDef *huart)
 
     // UART 수신 인터럽트 활성화 (단일 바이트 수신)
     // 참고: main.c에서 HAL_UART_Receive_IT 호출 필요
-
-    REPORT_INFO_MSG("Comm Protocol Initialized");
 }
 
 int32_t Comm_SendTelemetry(void)
