@@ -371,9 +371,14 @@ static void Comm_BuildTelemetryFrame(TelemetryFrame_t *frame)
         frame->displacement[1] = 0;
     }
 
-    // 팬 상태 (현재는 고정값, 추후 EMC2303에서 읽기 구현)
+    // 팬 상태 (SMA 채널에서 읽기)
     for (uint8_t i = 0; i < COMM_MAX_CHANNELS; i++) {
-        frame->fan_duty[i] = 0; // TODO: EMC2303에서 실제 duty 읽기
+        const SMA_Channel_t *ch = SMA_GetChannelState(i);
+        if (ch != NULL) {
+            frame->fan_duty[i] = (uint8_t)(ch->fan_duty + 0.5f);  // 반올림하여 uint8_t로 변환
+        } else {
+            frame->fan_duty[i] = 0;
+        }
     }
 
     // 시스템 상태

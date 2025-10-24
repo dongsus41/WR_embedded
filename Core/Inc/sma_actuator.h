@@ -33,6 +33,14 @@ extern "C" {
 #define SMA_PWM_MAX             100.0f  // 최대 PWM Duty (%)
 #define SMA_PWM_MIN             0.0f    // 최소 PWM Duty (%)
 
+/* ========== Fan Control Settings ========== */
+#define FAN_TEMP_START          40.0f   // 팬 시작 온도 (°C)
+#define FAN_TEMP_MIN            30.0f   // 팬 최소 동작 온도 (°C)
+#define FAN_TEMP_MAX            90.0f   // 팬 최대 속도 온도 (°C)
+#define FAN_DUTY_MIN            30.0f   // 팬 최소 Duty (%)
+#define FAN_DUTY_MAX            100.0f  // 팬 최대 Duty (%)
+#define FAN_ENABLE_AUTO         1       // 자동 팬 제어 활성화 (0=비활성, 1=활성)
+
 /* ========== Control Mode ========== */
 typedef enum {
     SMA_MODE_DISABLED = 0,      // 비활성 (PWM 0%)
@@ -64,6 +72,8 @@ typedef struct {
     SMA_PID_t pid;              // PID 제어기
     uint8_t overtemp_flag;      // 과열 플래그 (0=정상, 1=과열)
     uint32_t last_update_ms;    // 마지막 업데이트 시간 (ms)
+    float fan_duty;             // 팬 PWM Duty (%)
+    uint8_t fan_auto_enable;    // 자동 팬 제어 활성화 (0=수동, 1=자동)
 } SMA_Channel_t;
 
 /* ========== Global Controller State ========== */
@@ -169,6 +179,30 @@ const SMA_Channel_t* SMA_GetChannelState(uint8_t ch);
  * @return 1=과열, 0=정상
  */
 uint8_t SMA_IsOverTemp(uint8_t ch);
+
+/**
+ * @brief 팬 자동 제어 활성화/비활성화
+ * @param ch 채널 번호 (0~5)
+ * @param enable 1=자동 팬 제어, 0=수동 제어
+ * @return 0=성공, -1=실패
+ */
+int32_t SMA_SetFanAutoControl(uint8_t ch, uint8_t enable);
+
+/**
+ * @brief 팬 수동 제어 (자동 제어 비활성화 시에만 동작)
+ * @param ch 채널 번호 (0~5)
+ * @param duty_pct 팬 PWM Duty (0.0~100.0%)
+ * @return 0=성공, -1=실패
+ */
+int32_t SMA_SetFanDuty(uint8_t ch, float duty_pct);
+
+/**
+ * @brief 현재 팬 Duty 읽기
+ * @param ch 채널 번호 (0~5)
+ * @param duty_pct 팬 Duty 출력 포인터 (%)
+ * @return 0=성공, -1=실패
+ */
+int32_t SMA_GetFanDuty(uint8_t ch, float *duty_pct);
 
 /* ========== Private Functions (내부 사용) ========== */
 

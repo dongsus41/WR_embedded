@@ -6,6 +6,7 @@
 
 #include "sma_actuator.h"
 #include "sensors.h"
+#include "emc2303.h"
 #include "tim.h"
 #include "debug.h"
 #include <string.h>
@@ -39,6 +40,8 @@ static void SMA_InitPWM(void);
 static void SMA_InitChannels(void);
 static void SMA_UpdateTempControl(uint8_t ch, float dt);
 static void SMA_UpdateForceControl(uint8_t ch, float dt);
+static void SMA_UpdateFanControl(uint8_t ch);
+static float SMA_CalculateFanDuty(float temp);
 static void SMA_SafetyCheck(uint8_t ch);
 static inline float SMA_Clamp(float value, float min, float max);
 
@@ -249,6 +252,9 @@ void SMA_Update(void)
                 break;
         }
 
+        // 팬 냉각 제어 (자동 모드일 경우)
+        SMA_UpdateFanControl(ch);
+
         channel->last_update_ms = HAL_GetTick();
     }
 }
@@ -259,6 +265,10 @@ void SMA_EmergencyStop(void)
         SMA_SetMode(ch, SMA_MODE_DISABLED);
         SMA_SetHardwarePWM(ch, 0.0f);
         sma_ctrl.channels[ch].pwm_duty = 0.0f;
+
+        // 팬도 정지
+        sma_ctrl.channels[ch].fan_duty = 0.0f;
+        Fan6_SetDuty(ch, 0.0f);
     }
 
     REPORT_ERROR_MSG("SMA Emergency Stop");
@@ -311,6 +321,10 @@ static void SMA_InitChannels(void)
         channel->pwm_duty = 0.0f;
         channel->overtemp_flag = 0;
         channel->last_update_ms = 0;
+
+        // 팬 제어 초기화
+        channel->fan_duty = 0.0f;
+        channel->fan_auto_enable = FAN_ENABLE_AUTO;  // 기본값: 자동 팬 제어
 
         // PID 초기화
         channel->pid.kp = DEFAULT_KP;
@@ -480,4 +494,106 @@ void SMA_PID_Reset(SMA_PID_t *pid)
 
     pid->integral = 0.0f;
     pid->prev_error = 0.0f;
+}
+
+/* ========== Fan Control Functions ========== */
+
+int32_t SMA_SetFanAutoControl(uint8_t ch, uint8_t enable)
+{
+    if (ch >= SMA_MAX_CHANNELS) {
+        REPORT_ERROR_MSG("Invalid channel");
+        return -1;
+    }
+
+    sma_ctrl.channels[ch].fan_auto_enable = enable ? 1 : 0;
+
+    // 자동 모드 비활성화 시 팬 정지
+    if (!enable) {
+        sma_ctrl.channels[ch].fan_duty = 0.0f;
+        Fan6_SetDuty(ch, 0.0f);
+    }
+
+    return 0;
+}
+
+int32_t SMA_SetFanDuty(uint8_t ch, float duty_pct)
+{
+    if (ch >= SMA_MAX_CHANNELS) {
+        REPORT_ERROR_MSG("Invalid channel");
+        return -1;
+    }
+
+    SMA_Channel_t *channel = &sma_ctrl.channels[ch];
+
+    // 자동 제어 활성화 시 수동 제어 불가
+    if (channel->fan_auto_enable) {
+        REPORT_ERROR_MSG("Auto fan control is enabled");
+        return -1;
+    }
+
+    // Duty 제한
+    duty_pct = SMA_Clamp(duty_pct, 0.0f, 100.0f);
+
+    channel->fan_duty = duty_pct;
+    Fan6_SetDuty(ch, duty_pct);
+
+    return 0;
+}
+
+int32_t SMA_GetFanDuty(uint8_t ch, float *duty_pct)
+{
+    if (ch >= SMA_MAX_CHANNELS || duty_pct == NULL) {
+        return -1;
+    }
+
+    *duty_pct = sma_ctrl.channels[ch].fan_duty;
+    return 0;
+}
+
+static void SMA_UpdateFanControl(uint8_t ch)
+{
+    if (ch >= SMA_MAX_CHANNELS) {
+        return;
+    }
+
+    SMA_Channel_t *channel = &sma_ctrl.channels[ch];
+
+    // 자동 팬 제어가 비활성화되어 있으면 건너뛰기
+    if (!channel->fan_auto_enable) {
+        return;
+    }
+
+    // 모드별 팬 제어
+    if (channel->mode == SMA_MODE_DISABLED) {
+        // 구동기가 꺼져 있으면 팬도 정지
+        channel->fan_duty = 0.0f;
+        Fan6_SetDuty(ch, 0.0f);
+    } else {
+        // 온도 기반 팬 제어
+        float fan_duty = SMA_CalculateFanDuty(channel->current_temp);
+        channel->fan_duty = fan_duty;
+        Fan6_SetDuty(ch, fan_duty);
+    }
+}
+
+static float SMA_CalculateFanDuty(float temp)
+{
+    // 온도가 FAN_TEMP_MIN 이하면 팬 정지
+    if (temp < FAN_TEMP_MIN) {
+        return 0.0f;
+    }
+
+    // 온도가 FAN_TEMP_MAX 이상이면 팬 최대 속도
+    if (temp >= FAN_TEMP_MAX) {
+        return FAN_DUTY_MAX;
+    }
+
+    // 선형 보간: FAN_TEMP_MIN ~ FAN_TEMP_MAX 사이에서 FAN_DUTY_MIN ~ FAN_DUTY_MAX
+    float temp_range = FAN_TEMP_MAX - FAN_TEMP_MIN;
+    float duty_range = FAN_DUTY_MAX - FAN_DUTY_MIN;
+    float normalized = (temp - FAN_TEMP_MIN) / temp_range;
+
+    float duty = FAN_DUTY_MIN + (normalized * duty_range);
+
+    return SMA_Clamp(duty, FAN_DUTY_MIN, FAN_DUTY_MAX);
 }
