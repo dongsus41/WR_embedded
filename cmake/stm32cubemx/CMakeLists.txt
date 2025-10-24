@@ -35,6 +35,7 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/emc2303.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/sensors.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/sma_actuator.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/comm_protocol.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../startup_stm32h725xx.s
 )
 

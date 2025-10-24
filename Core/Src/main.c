@@ -37,6 +37,7 @@
 #include "emc2303.h"
 #include "sensors.h"
 #include "sma_actuator.h"
+#include "comm_protocol.h"
 
 /* USER CODE END Includes */
 
@@ -62,6 +63,9 @@ extern char log_msg[MAX_LOG_MSG_LEN];
 System_typedef system;
 __attribute__((section(".RAM_D2"))) __attribute__((aligned(4)))
 volatile uint16_t buf_adc1[CTRL_CH] = {0};
+
+// UART 수신 버퍼 (단일 바이트 수신용)
+static uint8_t uart_rx_byte;
 
 /* USER CODE END PV */
 
@@ -102,6 +106,17 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
     }
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3) {
+        // 수신된 바이트를 통신 프로토콜로 전달
+        Comm_RxByteCallback(uart_rx_byte);
+
+        // 다음 바이트 수신 준비
+        HAL_UART_Receive_IT(&huart3, &uart_rx_byte, 1);
+    }
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance != htim8.Instance) {
@@ -115,6 +130,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     if (t++ >= 5-1) {  // tick: 100Hz*5 --> 50ms
         t = 0;
+
+        // 텔레메트리 전송 (50ms 주기)
+        Comm_SendTelemetry();
 
         const SensorData_t *sensor = Sensor_GetData();
 
@@ -212,9 +230,16 @@ int main(void)
   // SMA 액추에이터 컨트롤러 초기화 (제어 주기: 10ms)
   SMA_Init(10);
 
+  // USART 통신 프로토콜 초기화
+  Comm_Init(&huart3);
+
+  // UART 수신 인터럽트 시작 (명령 수신용)
+  HAL_UART_Receive_IT(&huart3, &uart_rx_byte, 1);
+
   system.state_level = SYSTEM_GO;
   LED1_on;
   printf("System initialized\r\n");
+  printf("Ready to receive commands via USART3\r\n");
 
   // SMA 액추에이터 사용 예제
   // 예제 1: 오픈루프 제어 (채널 0을 50% PWM으로 설정)
@@ -226,6 +251,11 @@ int main(void)
   // SMA_SetTargetTemp(1, 60.0f);
   // SMA_SetPIDGains(1, 5.0f, 0.1f, 0.5f);
 
+  // 예제 3: 힘 제어 (채널 2를 50N 목표로 제어)
+  // SMA_SetMode(2, SMA_MODE_FORCE_CONTROL);
+  // SMA_SetTargetForce(2, 50.0f);
+  // SMA_SetPIDGains(2, 3.0f, 0.05f, 0.3f);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -236,6 +266,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	// USART 명령 처리
+	Comm_ProcessCommands();
+
 	while (LogFifo_Pop(log_msg) == 0)
 	{
 		printf("%s", log_msg);

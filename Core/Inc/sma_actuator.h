@@ -107,6 +107,14 @@ int32_t SMA_SetPWM(uint8_t ch, float duty_pct);
 int32_t SMA_SetTargetTemp(uint8_t ch, float temp_c);
 
 /**
+ * @brief 목표 힘 설정 (SMA_MODE_FORCE_CONTROL에서만 동작)
+ * @param ch 채널 번호 (0~5)
+ * @param force_n 목표 힘 (N 또는 센서 raw 값)
+ * @return 0=성공, -1=실패
+ */
+int32_t SMA_SetTargetForce(uint8_t ch, float force_n);
+
+/**
  * @brief PID 게인 설정
  * @param ch 채널 번호 (0~5)
  * @param kp 비례 게인

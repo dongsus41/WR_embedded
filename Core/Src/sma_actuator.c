@@ -38,6 +38,7 @@ static const SMA_PWM_Map_t pwm_map[SMA_MAX_CHANNELS] = {
 static void SMA_InitPWM(void);
 static void SMA_InitChannels(void);
 static void SMA_UpdateTempControl(uint8_t ch, float dt);
+static void SMA_UpdateForceControl(uint8_t ch, float dt);
 static void SMA_SafetyCheck(uint8_t ch);
 static inline float SMA_Clamp(float value, float min, float max);
 
@@ -140,6 +141,30 @@ int32_t SMA_SetTargetTemp(uint8_t ch, float temp_c)
     return 0;
 }
 
+int32_t SMA_SetTargetForce(uint8_t ch, float force_n)
+{
+    if (ch >= SMA_MAX_CHANNELS) {
+        REPORT_ERROR_MSG("Invalid channel");
+        return -1;
+    }
+
+    // 힘 범위 체크 (추후 실제 센서 범위에 맞게 수정)
+    if (force_n < 0.0f) {
+        REPORT_ERROR_MSG("Target force must be positive");
+        return -1;
+    }
+
+    SMA_Channel_t *channel = &sma_ctrl.channels[ch];
+    channel->target_force = force_n;
+
+    // 힘 제어 모드로 자동 전환
+    if (channel->mode != SMA_MODE_FORCE_CONTROL) {
+        SMA_SetMode(ch, SMA_MODE_FORCE_CONTROL);
+    }
+
+    return 0;
+}
+
 int32_t SMA_SetPIDGains(uint8_t ch, float kp, float ki, float kd)
 {
     if (ch >= SMA_MAX_CHANNELS) {
@@ -205,7 +230,7 @@ void SMA_Update(void)
                 break;
 
             case SMA_MODE_FORCE_CONTROL:
-                // 추후 구현
+                SMA_UpdateForceControl(ch, dt);
                 break;
 
             case SMA_MODE_POSITION_CONTROL:
@@ -317,6 +342,47 @@ static void SMA_UpdateTempControl(uint8_t ch, float dt)
 
     channel->pwm_duty = pwm_output;
     SMA_SetHardwarePWM(ch, pwm_output);
+}
+
+static void SMA_UpdateForceControl(uint8_t ch, float dt)
+{
+    SMA_Channel_t *channel = &sma_ctrl.channels[ch];
+
+    // 과열 시 제어 중지
+    if (channel->overtemp_flag) {
+        SMA_SetHardwarePWM(ch, 0.0f);
+        channel->pwm_duty = 0.0f;
+        return;
+    }
+
+    // TODO: 힘 센서 데이터 읽기 (센서 준비 후 구현)
+    // 현재는 골자만 준비
+    const SensorData_t *sensor = Sensor_GetData();
+    if (sensor == NULL) {
+        return;
+    }
+
+    // 힘 센서 값 읽기 (biotorq 필드 사용)
+    // 채널 매핑은 추후 실제 센서 연결에 맞게 조정 필요
+    float current_force = 0.0f;
+    if (ch < SENSOR_MAX_CH) {
+        // biotorq raw 값을 힘(N)으로 변환
+        // TODO: 실제 센서 캘리브레이션 값 적용
+        current_force = (float)sensor->can.biotorq[ch] / 100.0f;  // 임시 스케일링
+    }
+
+    // PID 계산
+    float pwm_output = SMA_PID_Compute(&channel->pid,
+                                        channel->target_force,
+                                        current_force,
+                                        dt);
+
+    channel->pwm_duty = pwm_output;
+    SMA_SetHardwarePWM(ch, pwm_output);
+
+    // 디버그 메시지 (선택적)
+    // REPORT_INFO_MSG("Force Control: CH%d Target=%.1f Current=%.1f PWM=%.1f",
+    //                 ch, channel->target_force, current_force, pwm_output);
 }
 
 static void SMA_SafetyCheck(uint8_t ch)
