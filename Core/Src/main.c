@@ -36,6 +36,7 @@
 #include "fdcan.h"
 #include "emc2303.h"
 #include "sensors.h"
+#include "sma_actuator.h"
 
 /* USER CODE END Includes */
 
@@ -108,6 +109,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     }
 
     static uint32_t t = 0;
+
+    // SMA 액추에이터 제어 업데이트 (10ms 주기)
+    SMA_Update();
 
     if (t++ >= 5-1) {  // tick: 100Hz*5 --> 50ms
         t = 0;
@@ -205,9 +209,22 @@ int main(void)
 //HAL_TIM_Base_Start(&htim8);
   HAL_TIM_Base_Start_IT(&htim8);
 
+  // SMA 액추에이터 컨트롤러 초기화 (제어 주기: 10ms)
+  SMA_Init(10);
+
   system.state_level = SYSTEM_GO;
   LED1_on;
   printf("System initialized\r\n");
+
+  // SMA 액추에이터 사용 예제
+  // 예제 1: 오픈루프 제어 (채널 0을 50% PWM으로 설정)
+  // SMA_SetMode(0, SMA_MODE_OPEN_LOOP);
+  // SMA_SetPWM(0, 50.0f);
+
+  // 예제 2: 온도 제어 (채널 1을 60°C로 제어)
+  // SMA_SetMode(1, SMA_MODE_TEMP_CONTROL);
+  // SMA_SetTargetTemp(1, 60.0f);
+  // SMA_SetPIDGains(1, 5.0f, 0.1f, 0.5f);
 
   /* USER CODE END 2 */
 
