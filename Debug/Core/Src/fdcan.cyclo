@@ -1,0 +1,10 @@
+../Core/Src/fdcan.c:41:6:MX_FDCAN1_Init	2
+../Core/Src/fdcan.c:89:6:MX_FDCAN2_Init	2
+../Core/Src/fdcan.c:139:6:HAL_FDCAN_MspInit	7
+../Core/Src/fdcan.c:223:6:HAL_FDCAN_MspDeInit	5
+../Core/Src/fdcan.c:285:6:FDCAN_Init	2
+../Core/Src/fdcan.c:314:6:FDCAN_Config_TX	1
+../Core/Src/fdcan.c:328:13:FDCAN_Config_RX	5
+../Core/Src/fdcan.c:357:13:FDCAN_Config_RX_range	4
+../Core/Src/fdcan.c:383:13:FDCAN_Config_TX_TDC	3
+../Core/Src/fdcan.c:406:9:CalculateFDCANTiming	16

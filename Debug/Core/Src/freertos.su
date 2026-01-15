@@ -1,0 +1,10 @@
+../Core/Src/freertos.c:144:6:vApplicationStackOverflowHook	24	static,ignoring_inline_asm
+../Core/Src/freertos.c:166:6:MX_FREERTOS_Init	8	static
+../Core/Src/freertos.c:236:13:StartCommandTask	168	static
+../Core/Src/freertos.c:287:13:StartControlTask	24	static
+../Core/Src/freertos.c:349:13:StartTelemetryTask	24	static
+../Core/Src/freertos.c:378:6:NRF70_TestTask	16	static
+../Core/Src/freertos.c:395:13:ProcessReceivedByte	16	static
+../Core/Src/freertos.c:435:6:RTOS_UART_RxCallback	24	static,ignoring_inline_asm
+../Core/Src/freertos.c:449:6:RTOS_ADC_ConvCpltCallback	16	static,ignoring_inline_asm
+../Core/Src/freertos.c:469:6:RTOS_FDCAN_RxCallback	24	static,ignoring_inline_asm
