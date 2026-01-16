@@ -12,6 +12,36 @@
 #include <string.h>
 #include <stdio.h>
 
+/* ========== Firmware Image Structures ========== */
+#define NRF_WIFI_PATCH_SIGNATURE 0xDEAD1EAF
+#define NRF_WIFI_PATCH_HASH_LEN 32
+
+// nRF70 펌웨어 이미지 타입
+typedef enum {
+    NRF70_IMAGE_UMAC_PRI = 0,
+    NRF70_IMAGE_UMAC_SEC,
+    NRF70_IMAGE_LMAC_PRI,
+    NRF70_IMAGE_LMAC_SEC,
+} nrf70_image_id_t;
+
+// 펌웨어 이미지 헤더
+typedef struct __attribute__((packed)) {
+    uint32_t type;
+    uint32_t len;
+    uint8_t  data[];
+} nrf70_fw_image_t;
+
+// 펌웨어 전체 헤더
+typedef struct __attribute__((packed)) {
+    uint32_t signature;
+    uint32_t num_images;
+    uint32_t version;
+    uint32_t feature_flags;
+    uint32_t len;
+    uint8_t  hash[NRF_WIFI_PATCH_HASH_LEN];
+    uint8_t  data[];
+} nrf70_fw_image_info_t;
+
 /* ========== Private Variables ========== */
 static OSPI_HandleTypeDef *nrf70_hospi = NULL;
 
@@ -271,4 +301,100 @@ static HAL_StatusTypeDef NRF70_WriteCommand(uint8_t cmd, uint8_t *tx_data, uint3
     status = HAL_OSPI_Transmit(nrf70_hospi, tx_data, HAL_OSPI_TIMEOUT_DEFAULT_VALUE);
 
     return status;
+}
+
+/* ========== Firmware Loader Functions ========== */
+
+void NRF70_PrintFirmwareInfo(const uint8_t *fw_data, uint32_t fw_size)
+{
+    if (fw_data == NULL || fw_size < sizeof(nrf70_fw_image_info_t)) {
+        printf("ERROR: Invalid firmware data\r\n");
+        return;
+    }
+
+    const nrf70_fw_image_info_t *fw_info = (const nrf70_fw_image_info_t *)fw_data;
+
+    printf("\r\n========== nRF7002 Firmware Information ==========\r\n");
+    printf("Signature:    0x%08lX %s\r\n", fw_info->signature,
+           (fw_info->signature == NRF_WIFI_PATCH_SIGNATURE) ? "(Valid)" : "(INVALID!)");
+    printf("Num Images:   %lu\r\n", fw_info->num_images);
+    printf("Version:      %lu.%lu.%lu.%lu\r\n",
+           (fw_info->version >> 24) & 0xFF,
+           (fw_info->version >> 16) & 0xFF,
+           (fw_info->version >> 8) & 0xFF,
+           (fw_info->version >> 0) & 0xFF);
+    printf("Features:     0x%08lX\r\n", fw_info->feature_flags);
+    printf("Total Size:   %lu bytes\r\n", fw_size);
+    printf("Data Length:  %lu bytes\r\n", fw_info->len);
+
+    // SHA256 해시 출력
+    printf("SHA256 Hash:  ");
+    for (int i = 0; i < 16; i++) {
+        printf("%02X", fw_info->hash[i]);
+    }
+    printf("...\r\n");
+
+    // 각 이미지 파싱
+    if (fw_info->signature == NRF_WIFI_PATCH_SIGNATURE) {
+        const uint8_t *data_ptr = fw_info->data;
+        uint32_t offset = 0;
+
+        printf("\r\nFirmware Images:\r\n");
+        for (uint32_t i = 0; i < fw_info->num_images && i < 4; i++) {
+            if (offset + sizeof(nrf70_fw_image_t) > fw_info->len) {
+                break;
+            }
+
+            const nrf70_fw_image_t *img = (const nrf70_fw_image_t *)(data_ptr + offset);
+            const char *img_name[] = {"UMAC_PRI", "UMAC_SEC", "LMAC_PRI", "LMAC_SEC"};
+
+            printf("  [%lu] %-10s: Type=%lu, Size=%lu bytes\r\n",
+                   i,
+                   (img->type < 4) ? img_name[img->type] : "UNKNOWN",
+                   img->type,
+                   img->len);
+
+            offset += sizeof(nrf70_fw_image_t) + img->len;
+        }
+    }
+
+    printf("==================================================\r\n");
+}
+
+HAL_StatusTypeDef NRF70_LoadFirmware(const uint8_t *fw_data, uint32_t fw_size)
+{
+    if (fw_data == NULL || fw_size == 0) {
+        printf("ERROR: Invalid firmware parameters\r\n");
+        return HAL_ERROR;
+    }
+
+    if (nrf70_hospi == NULL) {
+        printf("ERROR: QSPI not initialized\r\n");
+        return HAL_ERROR;
+    }
+
+    printf("\r\n>>> Starting Firmware Load...\r\n");
+
+    // 펌웨어 헤더 검증
+    const nrf70_fw_image_info_t *fw_info = (const nrf70_fw_image_info_t *)fw_data;
+
+    if (fw_info->signature != NRF_WIFI_PATCH_SIGNATURE) {
+        printf("ERROR: Invalid firmware signature: 0x%08lX\r\n", fw_info->signature);
+        return HAL_ERROR;
+    }
+
+    printf("Firmware signature valid: 0x%08lX\r\n", fw_info->signature);
+    printf("Number of images: %lu\r\n", fw_info->num_images);
+
+    // TODO: 실제 펌웨어 로딩 구현
+    // 현재는 feasibility 테스트용으로 헤더 파싱만 수행
+    // 전체 드라이버 포팅 시 nrf70-bm의 hal_fw_patch_loader.c 사용 필요
+
+    printf("\r\n>>> Firmware Load: STUB IMPLEMENTATION <<<\r\n");
+    printf("    실제 로딩을 위해서는 nrf70-bm 드라이버 통합 필요\r\n");
+    printf("    - hal_fw_patch_chunk_load() 구현\r\n");
+    printf("    - hal_fw_patch_boot() 구현\r\n");
+    printf("    - RPU 메모리 맵핑 및 전송 프로토콜 구현\r\n");
+
+    return HAL_OK;
 }

@@ -112,6 +112,22 @@ bool NRF70_RunFullTest(NRF70_TestResult_t *result);
  */
 void NRF70_PrintTestResult(const NRF70_TestResult_t *result);
 
+/**
+ * @brief nRF7002 펌웨어 로딩 (단순 버전 - Feasibility 테스트용)
+ * @param fw_data 펌웨어 바이너리 데이터 포인터
+ * @param fw_size 펌웨어 크기 (bytes)
+ * @return HAL_OK on success
+ * @note 실제 포팅 시 nrf70-bm 드라이버 전체를 사용해야 함
+ */
+HAL_StatusTypeDef NRF70_LoadFirmware(const uint8_t *fw_data, uint32_t fw_size);
+
+/**
+ * @brief 펌웨어 헤더 정보 출력 (디버그용)
+ * @param fw_data 펌웨어 바이너리 데이터 포인터
+ * @param fw_size 펌웨어 크기 (bytes)
+ */
+void NRF70_PrintFirmwareInfo(const uint8_t *fw_data, uint32_t fw_size);
+
 #ifdef __cplusplus
 }
 #endif
