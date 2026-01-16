@@ -41,6 +41,7 @@
 #include "sma_actuator.h"
 #include "comm_protocol.h"
 #include "nrf7002_test.h"
+#include "nrf7002_fw.h"
 
 /* USER CODE END Includes */
 
@@ -202,6 +203,12 @@ int main(void)
 
       if (all_passed) {
           printf("\r\n*** nRF7002 Ready for Wi-Fi Driver Porting! ***\r\n");
+
+          // 펌웨어 정보 출력
+          NRF70_PrintFirmwareInfo(nrf7002_fw_bin, NRF7002_FW_SIZE);
+
+          // 펌웨어 로딩 시도 (stub)
+          NRF70_LoadFirmware(nrf7002_fw_bin, NRF7002_FW_SIZE);
       } else {
           printf("\r\n*** Check hardware connections ***\r\n");
       }
