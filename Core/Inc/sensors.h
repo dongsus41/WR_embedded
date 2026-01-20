@@ -138,6 +138,18 @@ uint8_t Sensor_CheckTimeout(uint32_t timeout_ms);
  */
 int32_t Sensor_GetTemperature_ISR(uint8_t ch, float *temp_c);
 
+/**
+ * @brief DEBUG: CAN1 수신 카운터 읽기
+ * @return CAN1 메시지 수신 개수
+ */
+uint32_t Sensor_GetCAN1RxCount(void);
+
+/**
+ * @brief DEBUG: CAN2 수신 카운터 읽기
+ * @return CAN2 메시지 수신 개수
+ */
+uint32_t Sensor_GetCAN2RxCount(void);
+
 #ifdef __cplusplus
 }
 #endif

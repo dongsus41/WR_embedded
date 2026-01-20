@@ -20,6 +20,10 @@ static uint8_t temp_filter_filled[SENSOR_TEMP_CH];
 // 이전 온도 값 (이상치 필터용)
 static float temp_last_valid[SENSOR_TEMP_CH];
 
+// DEBUG: CAN 수신 카운터
+static volatile uint32_t can1_rx_count = 0;
+static volatile uint32_t can2_rx_count = 0;
+
 /* ========== Private Function Prototypes ========== */
 static inline uint16_t u16le(const uint8_t *p);
 static float temp_raw_to_celsius(uint16_t adc_val);
@@ -76,6 +80,7 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 
     // 0x100~0x10F 변위센서 처리 (CAN1)
     if (can_id >= 0x100 && can_id <= 0x10F) {
+        can1_rx_count++;  // DEBUG: 카운터 증가
         uint8_t idx = can_id - 0x100;  // 0~15 인덱스
         sensor_data.can.displacement[idx] = u16le(&rx_data[0]);
         sensor_data.can.displacement_valid_flag |= (1U << idx);
@@ -83,6 +88,9 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
         __set_PRIMASK(primask);
         return 0;
     }
+
+    // DEBUG: CAN2 메시지 카운트
+    can2_rx_count++;
 
     // 힘센서 처리 (CAN2)
     switch (can_id) {
@@ -400,4 +408,16 @@ static float apply_moving_average_filter(uint8_t ch, float new_temp)
     }
 
     return (count > 0) ? (sum / (float)count) : new_temp;
+}
+
+/* ========== DEBUG Functions ========== */
+
+uint32_t Sensor_GetCAN1RxCount(void)
+{
+    return can1_rx_count;
+}
+
+uint32_t Sensor_GetCAN2RxCount(void)
+{
+    return can2_rx_count;
 }
