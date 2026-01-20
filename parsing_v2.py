@@ -21,7 +21,7 @@ HEADER_BYTE2 = 0x55
 NUM_CHANNELS = 6
 NUM_FORCE_SENSORS = 4
 NUM_DISPLACEMENT_SENSORS = 5
-FRAME_SIZE = 128  # 2 + 4 + 96 + 8 + 10 + 6 + 2 + 2 = 128 bytes
+FRAME_SIZE = 130  # 2 + 4 + 96 + 8 + 10 + 6 + 2 + 2 = 128 bytes
 
 # ========== Data Structures ==========
 @dataclass
@@ -143,7 +143,7 @@ def parse_telemetry_frame(data: bytes) -> Optional[TelemetryFrame]:
         # CRC16 (2 bytes)
         crc16 = struct.unpack('<H', data[offset:offset+2])[0]
 
-        # CRC 검증 (CRC 필드 제외한 126 bytes)
+        # CRC 검증 (CRC 필드 제외한 128 bytes)
         crc_calculated = calculate_crc16(data[:-2])
         crc_valid = (crc16 == crc_calculated)
         

@@ -26,7 +26,7 @@ extern "C" {
 /* ========== Telemetry Frame ========== */
 #define TELEM_HEADER_BYTE1          0xAA
 #define TELEM_HEADER_BYTE2          0x55
-#define TELEM_FRAME_SIZE            128      // 텔레메트리 프레임 총 크기
+#define TELEM_FRAME_SIZE            130      // 텔레메트리 프레임 총 크기
 
 /* 채널별 구동기 상태 */
 typedef struct __attribute__((packed)) {
@@ -60,7 +60,7 @@ typedef struct __attribute__((packed)) {
 
     // CRC (2 bytes)
     uint16_t crc16;             // CRC-16 체크섬
-} TelemetryFrame_t;             // Total: 124 bytes
+} TelemetryFrame_t;             // Total: 130 bytes (2+4+96+8+10+6+1+1+2)
 
 /* ========== Command Protocol ========== */
 
