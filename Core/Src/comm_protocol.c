@@ -419,7 +419,13 @@ static void Comm_BuildTelemetryFrame(TelemetryFrame_t *frame)
         }
     }
 
-    frame->system_state = 0;
+    // DEBUG: CAN 수신 상태를 system_state에 표시
+    // Bit 0: CAN1 수신 여부 (1=수신 중)
+    // Bit 1: CAN2 수신 여부 (1=수신 중)
+    uint32_t can1_count = Sensor_GetCAN1RxCount();
+    uint32_t can2_count = Sensor_GetCAN2RxCount();
+    frame->system_state = ((can1_count > 0) ? 0x01 : 0x00) |
+                          ((can2_count > 0) ? 0x02 : 0x00);
 }
 
 static int32_t Comm_TransmitFrame(const uint8_t *data, uint16_t length)

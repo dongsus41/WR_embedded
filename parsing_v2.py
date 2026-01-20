@@ -184,11 +184,15 @@ def print_telemetry(frame: TelemetryFrame, clear_screen: bool = True):
         print(f"  {i}  | {act.current_temp:7.2f}C | {act.target_value:8.2f} | {act.pwm_duty:6.1f}% | {mode_name:^10} | {fault_str} | {fan:3d}%")
     
     print(f"-----+----------+----------+---------+------------+-------+-----")
-    
+
     # Force sensors & Displacement
     print(f"  Force Sensors : F0={frame.force_sensors[0]:5d}  F1={frame.force_sensors[1]:5d}  F2={frame.force_sensors[2]:5d}  F3={frame.force_sensors[3]:5d}")
     print(f"  Displacement  : D0={frame.displacement[0]:5d}  D1={frame.displacement[1]:5d}  D2={frame.displacement[2]:5d}  D3={frame.displacement[3]:5d}  D4={frame.displacement[4]:5d}")
-    print(f"  System State  : {frame.system_state}")
+
+    # CAN 수신 상태 디코딩
+    can1_rx = "RX" if (frame.system_state & 0x01) else "NO"
+    can2_rx = "RX" if (frame.system_state & 0x02) else "NO"
+    print(f"  CAN Status    : CAN1={can1_rx}  CAN2={can2_rx}  (State=0x{frame.system_state:02X})")
     print(f"====================================================================")
 
 def print_telemetry_compact(frame: TelemetryFrame):
