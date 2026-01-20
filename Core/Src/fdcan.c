@@ -348,6 +348,17 @@ static void FDCAN_Config_RX(FDCAN_HandleTypeDef* hfdcan, uint32_t *add_list, uin
         Error_Handler();
     }
 
+    // 인터럽트 라인 매핑 (FIFO0 인터럽트를 라인 0에 연결)
+    if (HAL_FDCAN_ConfigInterruptLines(hfdcan,
+                                       FDCAN_IT_RX_FIFO0_NEW_MESSAGE |
+                                       FDCAN_IT_RX_FIFO0_WATERMARK |
+                                       FDCAN_IT_RX_FIFO0_FULL |
+                                       FDCAN_IT_RX_FIFO0_MESSAGE_LOST,
+                                       FDCAN_INTERRUPT_LINE0) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
     if (HAL_FDCAN_ActivateNotification(hfdcan, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK)
     {
         Error_Handler();
@@ -370,6 +381,17 @@ static void FDCAN_Config_RX_range(FDCAN_HandleTypeDef* hfdcan, uint32_t add_rang
     }
 
     if (HAL_FDCAN_ConfigGlobalFilter(hfdcan, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    // 인터럽트 라인 매핑 (FIFO0 인터럽트를 라인 0에 연결)
+    if (HAL_FDCAN_ConfigInterruptLines(hfdcan,
+                                       FDCAN_IT_RX_FIFO0_NEW_MESSAGE |
+                                       FDCAN_IT_RX_FIFO0_WATERMARK |
+                                       FDCAN_IT_RX_FIFO0_FULL |
+                                       FDCAN_IT_RX_FIFO0_MESSAGE_LOST,
+                                       FDCAN_INTERRUPT_LINE0) != HAL_OK)
     {
         Error_Handler();
     }
