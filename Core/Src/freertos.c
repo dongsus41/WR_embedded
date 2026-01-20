@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
 #include "main.h"
 #include "cmsis_os.h"
 
@@ -194,10 +193,10 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the queue(s) */
   /* creation of uartRxQueue */
-  uartRxQueueHandle = osMessageQueueNew (128, 1, &uartRxQueue_attributes);
+  uartRxQueueHandle = osMessageQueueNew (512, 1, &uartRxQueue_attributes);
 
   /* creation of cmdQueue */
-  cmdQueueHandle = osMessageQueueNew (4, 128, &cmdQueue_attributes);
+  cmdQueueHandle = osMessageQueueNew (16, 128, &cmdQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */

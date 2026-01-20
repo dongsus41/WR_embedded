@@ -9,7 +9,8 @@ extern "C" {
 #include "stm32h7xx_hal.h"
 
 /* ========== 센서 채널 정의 ========== */
-#define SENSOR_MAX_CH           4   // CAN 센서 최대 채널 (4관절)
+#define SENSOR_FORCE_CH         4   // 힘 센서 최대 채널 (4관절)
+#define SENSOR_DISP_CH          5  // 변위 센서 최대 채널 (5관절)
 #define SENSOR_TEMP_CH          6   // 온도 센서 최대 채널
 
 /* ========== CAN ID 정의 ========== */
@@ -37,9 +38,9 @@ typedef enum {
 
 /* ========== CAN 센서 데이터 구조체 ========== */
 typedef struct {
-    uint16_t pwr[SENSOR_MAX_CH];        // 전력 (W)
-    uint16_t biotorq[SENSOR_MAX_CH];    // 생체 토크
-    uint16_t cap[SENSOR_MAX_CH];        // 정전용량
+    uint16_t pwr[SENSOR_FORCE_CH];        // 전력 (W)
+    uint16_t biotorq[SENSOR_FORCE_CH];    // 생체 토크
+    uint16_t cap[SENSOR_FORCE_CH];        // 정전용량
     uint32_t timestamp;                 // 마지막 업데이트 시간 (ms)
     uint8_t  valid_flag;                // 데이터 유효성 플래그 (비트마스크)
 } CANSensorData_t;

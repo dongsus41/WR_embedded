@@ -4,9 +4,8 @@
 #define UART_DEBUG					(huart3)
 #define UART_DEBUG_ADD				(&huart3)
 
-#define CAN1_RXID_ADC 				0x500
-#define CAN1_RXID_CTRL			 	0x401
-#define CAN1_RXADD_N				2
+#define CAN1_RXID_DISP_START      0x100  // 변위센서 시작
+#define CAN1_RXID_DISP_END        0x10F  // 0x10X 전체 받기
 
 #define CAN2_RXID_PWR_START 		0x001
 #define CAN2_RXID_PWR_END 			0x003
@@ -50,7 +49,7 @@
 #define CH5_ENABLE     1  // Channel 5 (Waist R) - ACTIVE
 
 // CAN sensor enable/disable
-#define CAN_SENSORS_ENABLE  1  // Set to 1 to enable CAN force sensors
+#define CAN_SENSORS_ENABLE  1  // Set to 1 to enable CAN force/displacement sensors
 
 // Count active channels (for optimization)
 #define ACTIVE_CHANNELS (CH0_ENABLE + CH1_ENABLE + CH2_ENABLE + CH3_ENABLE + CH4_ENABLE + CH5_ENABLE)

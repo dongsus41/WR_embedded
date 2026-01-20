@@ -25,7 +25,7 @@ extern "C" {
 /* ========== Telemetry Frame ========== */
 #define TELEM_HEADER_BYTE1          0xAA
 #define TELEM_HEADER_BYTE2          0x55
-#define TELEM_FRAME_SIZE            96      // 텔레메트리 프레임 총 크기
+#define TELEM_FRAME_SIZE            128      // 텔레메트리 프레임 총 크기
 
 /* 채널별 구동기 상태 */
 typedef struct __attribute__((packed)) {
@@ -46,9 +46,9 @@ typedef struct __attribute__((packed)) {
     // 6채널 구동기 상태 (6 x 16 = 96 bytes)
     ActuatorStatus_t actuator[COMM_MAX_CHANNELS];
 
-    // 센서 데이터 (12 bytes)
-    uint16_t force_sensor[4];   // 힘센서 4개 (CAN)
-    uint16_t displacement[2];   // 변위센서 2개 (CAN, 추후 확장)
+    // 센서 데이터 (18 bytes)
+    uint16_t force_sensor[SENSOR_FORCE_CH];     // 힘센서 4개
+    uint16_t displacement[SENSOR_DISP_CH];      // 변위센서 5개 
 
     // 팬 상태 (6 bytes)
     uint8_t  fan_duty[6];       // 팬 PWM Duty (%)

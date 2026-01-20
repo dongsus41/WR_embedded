@@ -164,7 +164,7 @@ const SensorData_t* Sensor_GetData(void)
 
 int32_t Sensor_GetCANChannel(uint8_t ch, uint16_t *pwr, uint16_t *biotorq, uint16_t *cap)
 {
-    if (ch >= SENSOR_MAX_CH) {
+    if (ch >= SENSOR_FORCE_CH) {
         return -1;
     }
 
