@@ -200,7 +200,7 @@ def print_telemetry_compact(frame: TelemetryFrame):
 # ========== Main ==========
 def main():
     parser = argparse.ArgumentParser(description='SMA Telemetry Parser')
-    parser.add_argument('--port', type=str, default='COM9', help='Serial port (default: COM9)')
+    parser.add_argument('--port', type=str, default='COM5', help='Serial port (default: COM9)')
     parser.add_argument('--baud', type=int, default=115200, help='Baud rate (default: 115200)')
     parser.add_argument('--raw', action='store_true', help='Show raw hex data')
     parser.add_argument('--no-clear', action='store_true', help='Do not clear screen (log mode)')
