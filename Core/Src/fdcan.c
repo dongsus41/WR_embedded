@@ -28,9 +28,9 @@
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
 
-static void FDCAN_Config_RX(FDCAN_HandleTypeDef* hfdcan, uint32_t *add_list, uint16_t add_list_size);
+__attribute__((unused)) static void FDCAN_Config_RX(FDCAN_HandleTypeDef* hfdcan, uint32_t *add_list, uint16_t add_list_size);
 static void FDCAN_Config_RX_range(FDCAN_HandleTypeDef* hfdcan, uint32_t add_range1, uint32_t add_range2);
-static void FDCAN_Config_TX_TDC(FDCAN_HandleTypeDef *hfdcan);
+__attribute__((unused)) static void FDCAN_Config_TX_TDC(FDCAN_HandleTypeDef *hfdcan);
 
 /* USER CODE END 0 */
 
@@ -315,7 +315,7 @@ void FDCAN_Config_TX(FDCAN_TxHeaderTypeDef *fdcan_tx_header, uint32_t tx_add, ui
     fdcan_tx_header->MessageMarker = 0;
 }
 
-static void FDCAN_Config_RX(FDCAN_HandleTypeDef* hfdcan, uint32_t *add_list, uint16_t add_list_size)
+__attribute__((unused)) static void FDCAN_Config_RX(FDCAN_HandleTypeDef* hfdcan, uint32_t *add_list, uint16_t add_list_size)
 {
     FDCAN_FilterTypeDef sFilterConfig;
 
@@ -370,7 +370,7 @@ static void FDCAN_Config_RX_range(FDCAN_HandleTypeDef* hfdcan, uint32_t add_rang
     }
 }
 
-static void FDCAN_Config_TX_TDC(FDCAN_HandleTypeDef *hfdcan)
+__attribute__((unused)) static void FDCAN_Config_TX_TDC(FDCAN_HandleTypeDef *hfdcan)
 {
     /* Configure and enable Tx Delay Compensation, required for BRS mode.
     TdcOffset default recommended value: DataTimeSeg1 * DataPrescaler
