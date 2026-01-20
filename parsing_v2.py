@@ -19,7 +19,9 @@ from typing import Optional
 HEADER_BYTE1 = 0xAA
 HEADER_BYTE2 = 0x55
 NUM_CHANNELS = 6
-FRAME_SIZE = 124  # 2 + 4 + 96 + 8 + 4 + 6 + 2 + 2 = 124 bytes
+NUM_FORCE_SENSORS = 4
+NUM_DISPLACEMENT_SENSORS = 5
+FRAME_SIZE = 128  # 2 + 4 + 96 + 8 + 10 + 6 + 2 + 2 = 128 bytes
 
 # ========== Data Structures ==========
 @dataclass
@@ -35,7 +37,7 @@ class TelemetryFrame:
     timestamp_ms: int
     actuators: list          # ActuatorStatus x 6
     force_sensors: list      # uint16 x 4
-    displacement: list       # uint16 x 2
+    displacement: list       # uint16 x 5
     fan_duty: list           # uint8 x 6
     system_state: int
     crc16: int
@@ -88,14 +90,14 @@ def parse_actuator_status(data: bytes) -> ActuatorStatus:
     )
 
 def parse_telemetry_frame(data: bytes) -> Optional[TelemetryFrame]:
-    """전체 텔레메트리 프레임 파싱 (124 bytes)
-    
+    """전체 텔레메트리 프레임 파싱 (128 bytes)
+
     Layout:
         header[2]           (2 bytes)  - 0xAA, 0x55
         timestamp_ms        (4 bytes)  - uint32 LE
         actuator[6]         (96 bytes) - 6 x 16 bytes
         force_sensor[4]     (8 bytes)  - 4 x uint16 LE
-        displacement[2]     (4 bytes)  - 2 x uint16 LE
+        displacement[5]     (10 bytes) - 5 x uint16 LE
         fan_duty[6]         (6 bytes)  - 6 x uint8
         system_state        (1 byte)
         reserved            (1 byte)
@@ -122,10 +124,10 @@ def parse_telemetry_frame(data: bytes) -> Optional[TelemetryFrame]:
         # Little Endian으로 읽기 (MCU에서 그대로 저장)
         force_sensors = list(struct.unpack('<4H', data[offset:offset+8]))
         offset += 8
-        
-        # Displacement (2 x uint16 = 4 bytes)
-        displacement = list(struct.unpack('<2H', data[offset:offset+4]))
-        offset += 4
+
+        # Displacement (5 x uint16 = 10 bytes)
+        displacement = list(struct.unpack('<5H', data[offset:offset+10]))
+        offset += 10
         
         # Fan duty (6 x uint8 = 6 bytes)
         fan_duty = list(struct.unpack('<6B', data[offset:offset+6]))
@@ -140,8 +142,8 @@ def parse_telemetry_frame(data: bytes) -> Optional[TelemetryFrame]:
         
         # CRC16 (2 bytes)
         crc16 = struct.unpack('<H', data[offset:offset+2])[0]
-        
-        # CRC 검증 (CRC 필드 제외한 122 bytes)
+
+        # CRC 검증 (CRC 필드 제외한 126 bytes)
         crc_calculated = calculate_crc16(data[:-2])
         crc_valid = (crc16 == crc_calculated)
         
@@ -185,7 +187,7 @@ def print_telemetry(frame: TelemetryFrame, clear_screen: bool = True):
     
     # Force sensors & Displacement
     print(f"  Force Sensors : F0={frame.force_sensors[0]:5d}  F1={frame.force_sensors[1]:5d}  F2={frame.force_sensors[2]:5d}  F3={frame.force_sensors[3]:5d}")
-    print(f"  Displacement  : D0={frame.displacement[0]:5d}  D1={frame.displacement[1]:5d}")
+    print(f"  Displacement  : D0={frame.displacement[0]:5d}  D1={frame.displacement[1]:5d}  D2={frame.displacement[2]:5d}  D3={frame.displacement[3]:5d}  D4={frame.displacement[4]:5d}")
     print(f"  System State  : {frame.system_state}")
     print(f"====================================================================")
 
