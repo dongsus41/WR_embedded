@@ -175,7 +175,9 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* fdcanHandle)
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN FDCAN1_MspInit 1 */
-
+    /* FDCAN1 interrupt Init */
+    HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 6, 0);
+    HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
   /* USER CODE END FDCAN1_MspInit 1 */
   }
   else if(fdcanHandle->Instance==FDCAN2)
@@ -284,27 +286,15 @@ void HAL_FDCAN_MspDeInit(FDCAN_HandleTypeDef* fdcanHandle)
 
 void FDCAN_Init(void)
 {
-    uint32_t rx_id_can1[] = {CAN1_RXID_ADC, CAN1_RXID_CTRL};
-    // FDCAN_Config_RX(&hfdcan1, rx_id_can1, CAN1_RXADD_N);
+    // CAN1: 변위센서 (0x100~0x10F)
+    FDCAN_Config_RX_range(&hfdcan1, CAN1_RXID_DISP_START, CAN1_RXID_DISP_END);
+    if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
-    // FDCAN_Config_TX(&can1_tx_header, 0x100, FDCAN_DLC_BYTES_64);
-
-    // FDCAN_Config_TX_TDC(&hfdcan1);
-    // if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)
-    // {
-    //     Error_Handler();
-    // }
-
-    // uint32_t rx_id_can2[] = {0x700, 0x701};
-    // FDCAN_Config_RX(&hfdcan2, rx_id_can2, 2);
+    // CAN2: 힘센서 (0x001~0x003)
     FDCAN_Config_RX_range(&hfdcan2, CAN2_RXID_PWR_START, CAN2_RXID_PWR_END);
-
-    // 인터럽트 라인 매핑 + 알림 활성화
-    // HAL_FDCAN_ConfigInterruptLines(&hfdcan2, FDCAN_IT_GROUP_RX_FIFO0, FDCAN_INTERRUPT_LINE_0);
-    // HAL_FDCAN_ActivateNotification(&hfdcan2, FDCAN_IT_RX_FIFO0_NEW_MESSAGE | FDCAN_IT_RX_FIFO0_FULL | FDCAN_IT_RX_FIFO0_OVERFLOW, 0);
-
-    // FDCAN_Config_TX(&tx_header, 0x400, FDCAN_DLC_BYTES_8);
-
     if (HAL_FDCAN_Start(&hfdcan2) != HAL_OK)
     {
         Error_Handler();

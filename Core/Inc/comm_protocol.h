@@ -16,6 +16,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 #include "stm32h7xx_hal.h"
+#include "sensors.h"
 
 /* ========== Configuration ========== */
 #define COMM_TELEMETRY_PERIOD_MS    10      // 텔레메트리 전송 주기 (100Hz)

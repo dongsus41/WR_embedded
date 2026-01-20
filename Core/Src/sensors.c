@@ -74,6 +74,17 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
 
+    // 0x100~0x10F 변위센서 처리 (CAN1)
+    if (can_id >= 0x100 && can_id <= 0x10F) {
+        uint8_t idx = can_id - 0x100;  // 0~15 인덱스
+        sensor_data.can.displacement[idx] = u16le(&rx_data[0]);
+        sensor_data.can.displacement_valid_flag |= (1U << idx);
+        sensor_data.can.timestamp = HAL_GetTick();
+        __set_PRIMASK(primask);
+        return 0;
+    }
+
+    // 힘센서 처리 (CAN2)
     switch (can_id) {
         case CAN_ID_PWR_FOREARM:
             sensor_data.can.biotorq[SENSOR_CH_FOREARM_L] = u16le(&rx_data[0]);

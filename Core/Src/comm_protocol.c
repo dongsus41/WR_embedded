@@ -391,11 +391,14 @@ static void Comm_BuildTelemetryFrame(TelemetryFrame_t *frame)
 #if CAN_SENSORS_ENABLE
     const SensorData_t *sensor = Sensor_GetData();
     if (sensor != NULL) {
-        for (uint8_t i = 0; i < 4; i++) {
+        // 힘센서 (4채널)
+        for (uint8_t i = 0; i < SENSOR_FORCE_CH; i++) {
             frame->force_sensor[i] = sensor->can.pwr[i];
         }
-        frame->displacement[0] = 0;
-        frame->displacement[1] = 0;
+        // 변위센서 (5채널, ID 0x101~0x105 = 인덱스 1~5)
+        for (uint8_t i = 0; i < SENSOR_DISP_CH; i++) {
+            frame->displacement[i] = sensor->can.displacement[i + 1];
+        }
     }
 #else
     memset(frame->force_sensor, 0, sizeof(frame->force_sensor));
