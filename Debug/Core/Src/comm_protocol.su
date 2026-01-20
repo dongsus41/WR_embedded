@@ -5,6 +5,6 @@
 ../Core/Src/comm_protocol.c:204:9:Comm_ExecuteCommand	24	static
 ../Core/Src/comm_protocol.c:324:6:Comm_SendResponse	152	static
 ../Core/Src/comm_protocol.c:346:6:Comm_SendResponse_Unsafe	152	static
-../Core/Src/comm_protocol.c:363:13:Comm_BuildTelemetryFrame	32	static
-../Core/Src/comm_protocol.c:425:16:Comm_TransmitFrame	24	static
-../Core/Src/comm_protocol.c:437:10:Comm_CalculateCRC16	24	static
+../Core/Src/comm_protocol.c:363:13:Comm_BuildTelemetryFrame	40	static
+../Core/Src/comm_protocol.c:431:16:Comm_TransmitFrame	24	static
+../Core/Src/comm_protocol.c:443:10:Comm_CalculateCRC16	24	static
