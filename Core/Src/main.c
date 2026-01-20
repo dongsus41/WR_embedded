@@ -328,7 +328,6 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t last_check = 0;
   while (1)
   {
     /* USER CODE END WHILE */
