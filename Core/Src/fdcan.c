@@ -297,6 +297,10 @@ void FDCAN_Init(void)
 
     // uint32_t rx_id_can2[] = {0x700, 0x701};
     // FDCAN_Config_RX(&hfdcan2, rx_id_can2, 2);
+
+    // [디버그] 필터 설정 전 상태 확인
+    HAL_StatusTypeDef status;
+
     FDCAN_Config_RX_range(&hfdcan2, CAN2_RXID_PWR_START, CAN2_RXID_PWR_END);
 
     // 인터럽트 라인 매핑 + 알림 활성화
@@ -305,9 +309,24 @@ void FDCAN_Init(void)
 
     // FDCAN_Config_TX(&tx_header, 0x400, FDCAN_DLC_BYTES_8);
 
-    if (HAL_FDCAN_Start(&hfdcan2) != HAL_OK)
+    // [디버그] FDCAN Start 성공 여부 확인
+    status = HAL_FDCAN_Start(&hfdcan2);
+    if (status != HAL_OK)
     {
-        Error_Handler();
+        // FDCAN Start 실패 - LED로 표시
+        while(1) {
+            HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+            HAL_Delay(100);
+        }
+    }
+
+    // [디버그] 인터럽트 활성화 확인
+    if ((hfdcan2.Instance->IE & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) == 0) {
+        // 인터럽트가 활성화되지 않음
+        while(1) {
+            HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+            HAL_Delay(200);
+        }
     }
 }
 
