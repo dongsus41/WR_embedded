@@ -1,0 +1,10 @@
+../Core/Src/comm_protocol.c:40:6:Comm_Init	2
+../Core/Src/comm_protocol.c:58:9:Comm_SendTelemetry	2
+../Core/Src/comm_protocol.c:80:9:Comm_SendTelemetry_Safe	3
+../Core/Src/comm_protocol.c:99:9:Comm_ParseCommand	27
+../Core/Src/comm_protocol.c:204:9:Comm_ExecuteCommand	29
+../Core/Src/comm_protocol.c:324:6:Comm_SendResponse	4
+../Core/Src/comm_protocol.c:346:6:Comm_SendResponse_Unsafe	3
+../Core/Src/comm_protocol.c:363:13:Comm_BuildTelemetryFrame	14
+../Core/Src/comm_protocol.c:425:16:Comm_TransmitFrame	4
+../Core/Src/comm_protocol.c:437:10:Comm_CalculateCRC16	4
