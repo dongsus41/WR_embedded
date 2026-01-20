@@ -453,7 +453,7 @@ static void SMA_UpdateForceControl(uint8_t ch, float dt)
     }
 
     float current_force = 0.0f;
-    if (ch < SENSOR_MAX_CH) {
+    if (ch < SENSOR_FORCE_CH) {
         current_force = (float)sensor->can.biotorq[ch] / 100.0f;
     }
 

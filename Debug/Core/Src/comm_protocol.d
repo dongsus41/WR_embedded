@@ -37,8 +37,9 @@ Core/Src/comm_protocol.o: ../Core/Src/comm_protocol.c \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_tim_ex.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h \
  ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h \
- ../Core/Inc/common_defs.h ../Core/Inc/sma_actuator.h \
- ../Core/Inc/sensors.h ../Core/Inc/emc2303.h ../Core/Inc/debug.h \
+ ../Core/Inc/sensors.h ../Core/Inc/common_defs.h \
+ ../Core/Inc/sma_actuator.h ../Core/Inc/sensors.h ../Core/Inc/emc2303.h \
+ ../Core/Inc/debug.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Core/Inc/FreeRTOSConfig.h \
@@ -88,6 +89,7 @@ Core/Src/comm_protocol.o: ../Core/Src/comm_protocol.c \
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_tim_ex.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart.h:
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal_uart_ex.h:
+../Core/Inc/sensors.h:
 ../Core/Inc/common_defs.h:
 ../Core/Inc/sma_actuator.h:
 ../Core/Inc/sensors.h:
