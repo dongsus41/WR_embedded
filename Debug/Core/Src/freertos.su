@@ -5,6 +5,6 @@
 ../Core/Src/freertos.c:348:13:StartTelemetryTask	24	static
 ../Core/Src/freertos.c:377:6:NRF70_TestTask	16	static
 ../Core/Src/freertos.c:394:13:ProcessReceivedByte	16	static
-../Core/Src/freertos.c:434:6:RTOS_UART_RxCallback	24	static,ignoring_inline_asm
-../Core/Src/freertos.c:448:6:RTOS_ADC_ConvCpltCallback	16	static,ignoring_inline_asm
-../Core/Src/freertos.c:468:6:RTOS_FDCAN_RxCallback	24	static,ignoring_inline_asm
+../Core/Src/freertos.c:434:6:RTOS_UART_RxCallback	16	static
+../Core/Src/freertos.c:444:6:RTOS_ADC_ConvCpltCallback	8	static
+../Core/Src/freertos.c:459:6:RTOS_FDCAN_RxCallback	16	static

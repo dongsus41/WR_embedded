@@ -5,6 +5,6 @@
 ../Core/Src/freertos.c:348:13:StartTelemetryTask	1
 ../Core/Src/freertos.c:377:6:NRF70_TestTask	1
 ../Core/Src/freertos.c:394:13:ProcessReceivedByte	5
-../Core/Src/freertos.c:434:6:RTOS_UART_RxCallback	2
-../Core/Src/freertos.c:448:6:RTOS_ADC_ConvCpltCallback	2
-../Core/Src/freertos.c:468:6:RTOS_FDCAN_RxCallback	2
+../Core/Src/freertos.c:434:6:RTOS_UART_RxCallback	1
+../Core/Src/freertos.c:444:6:RTOS_ADC_ConvCpltCallback	1
+../Core/Src/freertos.c:459:6:RTOS_FDCAN_RxCallback	1
