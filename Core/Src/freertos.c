@@ -433,13 +433,9 @@ static void ProcessReceivedByte(uint8_t byte)
  */
 void RTOS_UART_RxCallback(uint8_t byte)
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-    // ISR에서 큐에 바이트 전송
-    xQueueSendFromISR(uartRxQueueHandle, &byte, &xHigherPriorityTaskWoken);
-
-    // 높은 우선순위 태스크가 깨어났으면 컨텍스트 스위칭
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    // ISR에서 큐에 바이트 전송 (CMSIS-RTOS v2 API)
+    // 타임아웃 0 = ISR에서는 블로킹하지 않음
+    osMessageQueuePut(uartRxQueueHandle, &byte, 0, 0);
 }
 
 /**
@@ -447,17 +443,12 @@ void RTOS_UART_RxCallback(uint8_t byte)
  */
 void RTOS_ADC_ConvCpltCallback(void)
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
     // 센서 데이터 업데이트 (ISR에서 직접 수행 - 빠른 처리)
     extern volatile uint16_t buf_adc1[];
     Sensor_UpdateADC(buf_adc1);
 
     // ControlTask에 알림 (선택적)
-    // xTaskNotifyFromISR(ControlTaskHandle, NOTIFY_ADC_COMPLETE,
-    //                    eSetBits, &xHigherPriorityTaskWoken);
-
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    // osThreadFlagsSet(ControlTaskHandle, NOTIFY_ADC_COMPLETE);
 }
 
 /**
@@ -467,16 +458,11 @@ void RTOS_ADC_ConvCpltCallback(void)
  */
 void RTOS_FDCAN_RxCallback(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
     // 센서 데이터 업데이트 (ISR에서 직접 수행)
     Sensor_UpdateCAN(rx_header, rx_data);
 
     // ControlTask에 알림 (선택적)
-    // xTaskNotifyFromISR(ControlTaskHandle, NOTIFY_CAN_RX,
-    //                    eSetBits, &xHigherPriorityTaskWoken);
-
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    // osThreadFlagsSet(ControlTaskHandle, NOTIFY_CAN_RX);
 }
 
 
