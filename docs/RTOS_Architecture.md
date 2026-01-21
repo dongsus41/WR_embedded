@@ -138,6 +138,40 @@
 
 **전송 속도**: ~83Hz (12ms 주기)
 
+#### 텔레메트리 타이밍 설계 배경
+
+**왜 12ms (83Hz)인가?**
+
+원래 목표는 **80Hz**였으며, 이는 외부 HX711 로드셀의 하드웨어 제약에서 비롯되었습니다:
+
+1. **HX711 로드셀 ADC 제약**:
+   ```
+   HX711 최대 샘플링 레이트: 80 SPS (Samples Per Second)
+   → 텔레메트리도 80Hz로 동기화
+   → 외부 센서 데이터와 SMA 제어 데이터를 하나의 프레임으로 전송
+   ```
+
+2. **FreeRTOS 틱 제약**:
+   ```
+   80Hz = 12.5ms 주기
+   하지만 FreeRTOS 틱은 1ms 단위 (정수만 가능)
+   → 12ms 또는 13ms 중 선택
+   → 더 빠른 12ms 선택 (83.33Hz ≈ 80Hz, 오차 4%)
+   ```
+
+3. **UART 대역폭 고려**:
+   ```
+   프레임 크기: 130 bytes
+   UART 속도: 115200 baud
+   전송 시간: 130 × 10 ÷ 115200 = 11.3ms
+
+   100Hz (10ms): 대역폭 113% 사용 (오버플로우 위험)
+   83Hz (12ms): 대역폭 94% 사용 (안전)
+   80Hz (12.5ms): 대역폭 90% 사용 (이상적)
+   ```
+
+**현재 상태**: FDCAN으로 전환했지만 레거시 80Hz 설계를 유지하여 향후 HX711 통합 가능성을 열어둠.
+
 ---
 
 ### 3. CommandTask (명령 처리)
@@ -402,6 +436,160 @@ void Sensor_UpdateCAN(...) {
 | **FDCAN1** | 1Mbps/2Mbps FD | 변위 센서 네트워크 |
 | **FDCAN2** | 1Mbps/2Mbps FD | 힘/전력 센서 네트워크 |
 | **I2C4** | 400kHz Fast | EMC2303 팬 컨트롤러 |
+
+---
+
+## 시스템 블록 다이어그램
+
+### 전체 데이터 흐름 아키텍처
+
+```mermaid
+graph LR
+    %% 입력 센서들
+    ADC1[ADC1<br/>Temperature<br/>6 ch]
+    CAN1[FDCAN1<br/>Displacement<br/>0x100-0x10F]
+    CAN2[FDCAN2<br/>Force/Power<br/>0x001-0x003]
+    UART_RX[UART3 RX<br/>Commands<br/>115200]
+
+    %% ISR 레이어
+    ISR_ADC[ISR<br/>ADC Callback]
+    ISR_CAN[ISR<br/>FDCAN Callback]
+    ISR_UART[ISR<br/>UART Callback]
+
+    %% 버퍼/큐
+    SENSOR_DATA[(sensor_data<br/>Direct Update<br/>__disable_irq)]
+    UART_Q[Queue<br/>uartRxQueue<br/>512 bytes]
+    CMD_Q[Queue<br/>cmdQueue<br/>16×128B]
+
+    %% 태스크들
+    CMD_TASK[CommandTask<br/>Priority: Normal<br/>Parse & Execute]
+    CTRL_TASK[ControlTask<br/>Priority: Realtime<br/>100Hz Control]
+    TELEM_TASK[TelemetryTask<br/>Priority: High<br/>83Hz Transmit]
+
+    %% 동기화 객체
+    M_SENSOR{{M<br/>sensorData<br/>Mutex}}
+    M_SMA{{M<br/>smaChannel<br/>Mutex}}
+    M_UART{{M<br/>uartTx<br/>Mutex}}
+    M_I2C{{M<br/>i2c<br/>Mutex}}
+
+    %% 중간 처리
+    SMA_DATA[(SMA State<br/>sma_channels)]
+
+    %% 출력
+    PWM_OUT[PWM Output<br/>6 Channels<br/>TIM2/3/4]
+    FAN_OUT[Fan Control<br/>I2C4<br/>EMC2303]
+    UART_TX[UART3 TX<br/>Telemetry<br/>130 bytes]
+
+    %% 연결: 센서 → ISR
+    ADC1 -->|DMA Complete| ISR_ADC
+    CAN1 -->|RX Interrupt| ISR_CAN
+    CAN2 -->|RX Interrupt| ISR_CAN
+    UART_RX -->|RX Interrupt| ISR_UART
+
+    %% 연결: ISR → 버퍼
+    ISR_ADC -->|Direct Write| SENSOR_DATA
+    ISR_CAN -->|Direct Write| SENSOR_DATA
+    ISR_UART -->|Put| UART_Q
+
+    %% 연결: CommandTask 경로
+    UART_Q -->|Get| CMD_TASK
+    CMD_TASK -->|Assemble| CMD_Q
+    CMD_Q -->|Parse| CMD_TASK
+    CMD_TASK -->|M| M_SMA
+    M_SMA --> SMA_DATA
+
+    %% 연결: ControlTask 경로
+    SENSOR_DATA -->|M| M_SENSOR
+    M_SENSOR --> CTRL_TASK
+    SMA_DATA -->|M| M_SMA
+    M_SMA --> CTRL_TASK
+    CTRL_TASK -->|Update| SMA_DATA
+    CTRL_TASK -->|M| M_I2C
+
+    %% 연결: 출력
+    CTRL_TASK --> PWM_OUT
+    M_I2C --> FAN_OUT
+
+    %% 연결: TelemetryTask 경로
+    SENSOR_DATA -->|M| M_SENSOR
+    M_SENSOR --> TELEM_TASK
+    SMA_DATA --> TELEM_TASK
+    TELEM_TASK -->|M| M_UART
+    M_UART --> UART_TX
+
+    %% 스타일링
+    classDef sensorClass fill:#1a4d7d,stroke:#fff,stroke-width:2px,color:#fff
+    classDef isrClass fill:#00bcd4,stroke:#fff,stroke-width:2px,color:#000
+    classDef queueClass fill:#1565c0,stroke:#fff,stroke-width:2px,color:#fff
+    classDef taskClass fill:#757575,stroke:#fff,stroke-width:3px,color:#fff
+    classDef mutexClass fill:#2e7d32,stroke:#fff,stroke-width:2px,color:#fff,shape:circle
+    classDef dataClass fill:#4a148c,stroke:#fff,stroke-width:2px,color:#fff
+    classDef outputClass fill:#1a4d7d,stroke:#fff,stroke-width:2px,color:#fff
+
+    class ADC1,CAN1,CAN2,UART_RX sensorClass
+    class ISR_ADC,ISR_CAN,ISR_UART isrClass
+    class UART_Q,CMD_Q queueClass
+    class CMD_TASK,CTRL_TASK,TELEM_TASK taskClass
+    class M_SENSOR,M_SMA,M_UART,M_I2C mutexClass
+    class SENSOR_DATA,SMA_DATA dataClass
+    class PWM_OUT,FAN_OUT,UART_TX outputClass
+```
+
+### 다이어그램 설명
+
+#### 레이어 구조
+1. **입력 레이어** (왼쪽 상단):
+   - ADC1: 6채널 온도 센서 (DMA 기반)
+   - FDCAN1: 변위 센서 네트워크 (16개 ID)
+   - FDCAN2: 힘/전력 센서 (3개 ID)
+   - UART3 RX: 명령 인터페이스
+
+2. **ISR 레이어** (중간 상단):
+   - 하드웨어 인터럽트 핸들러
+   - ISR-safe 작업만 수행 (논블로킹)
+
+3. **버퍼/데이터 레이어** (중간):
+   - 센서 데이터: 직접 업데이트 (인터럽트 비활성화 보호)
+   - UART/Command 큐: RTOS 메시지 큐
+
+4. **태스크 레이어** (중간 하단):
+   - CommandTask: 명령 파싱 및 실행
+   - ControlTask: 100Hz 제어 루프 (최고 우선순위)
+   - TelemetryTask: 83Hz 원격 측정 전송
+
+5. **동기화 레이어** (중간):
+   - M: 뮤텍스 (Mutex) - 공유 리소스 보호
+   - 4개 뮤텍스로 경합 조건 방지
+
+6. **출력 레이어** (오른쪽):
+   - PWM: 6채널 SMA 액추에이터
+   - I2C: 팬 제어 (EMC2303)
+   - UART TX: 텔레메트리 스트림
+
+#### 주요 데이터 경로
+
+**센서 → 제어 경로** (실시간):
+```
+ADC/CAN → ISR → sensor_data → [M_SENSOR] → ControlTask → SMA → PWM
+```
+
+**명령 처리 경로** (이벤트 기반):
+```
+UART RX → ISR → uartRxQueue → CommandTask → cmdQueue → [M_SMA] → sma_channels
+```
+
+**원격 측정 경로** (주기적):
+```
+sensor_data + sma_channels → [M_SENSOR, M_UART] → TelemetryTask → UART TX
+```
+
+#### 설계 특징
+
+1. **Zero-Copy for Sensors**: 센서 데이터는 큐를 거치지 않고 직접 업데이트 (지연 최소화)
+2. **Priority-based Scheduling**: ControlTask가 최고 우선순위로 10ms 정밀도 보장
+3. **Mutex Protection**: 4개 뮤텍스로 공유 리소스 안전하게 보호
+4. **ISR-safe Design**: ISR에서는 논블로킹 작업만 수행
+5. **Layered Architecture**: 명확한 계층 분리로 유지보수성 향상
 
 ---
 
