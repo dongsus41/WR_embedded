@@ -810,6 +810,224 @@ Telemetry  ▲            ▲            ▲            ▲            (12ms 간
 
 ---
 
+## 통신 프로토콜
+
+### 텔레메트리 데이터 패킷
+
+**파일**: `Core/Inc/comm_protocol.h`, `Core/Src/comm_protocol.c`
+
+#### 패킷 구조 (130 bytes, Little-Endian)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  텔레메트리 프레임 (130 bytes)                 │
+├────────┬──────────┬────────────────────────────────────────┤
+│ Offset │ Size     │ Field                                 │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 0      │ 1 byte   │ Header Byte 1 (0xAA)                  │
+│ 1      │ 1 byte   │ Header Byte 2 (0x55)                  │
+│ 2      │ 4 bytes  │ Timestamp (ms, uint32_t)              │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 6      │ 96 bytes │ Actuator Status [6 channels × 16B]   │
+│        │          │   Per Channel (16 bytes):             │
+│        │          │   - current_temp (4B, float)          │
+│        │          │   - target_value (4B, float)          │
+│        │          │   - pwm_duty (4B, float, %)           │
+│        │          │   - control_mode (1B, uint8_t)        │
+│        │          │   - fault_flag (1B, uint8_t)          │
+│        │          │   - reserved[2] (2B, padding)         │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 102    │ 8 bytes  │ Force Sensors [4 × 2B, uint16_t]      │
+│        │          │   - Force CH0 (Forearm L)             │
+│        │          │   - Force CH1 (Forearm R)             │
+│        │          │   - Force CH2 (Biceps L)              │
+│        │          │   - Force CH3 (Biceps R)              │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 110    │ 10 bytes │ Displacement [5 × 2B, uint16_t]       │
+│        │          │   - Disp CH0-4 (CAN ID 0x101-0x105)   │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 120    │ 6 bytes  │ Fan Duty [6 × 1B, uint8_t, %]         │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 126    │ 1 byte   │ System State (bitfield)               │
+│        │          │   - Bit 0: CAN1 RX active             │
+│        │          │   - Bit 1: CAN2 RX active             │
+│        │          │   - Bit 2-7: Reserved                 │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 127    │ 1 byte   │ Reserved                              │
+├────────┼──────────┼────────────────────────────────────────┤
+│ 128    │ 2 bytes  │ CRC-16 (CCITT)                        │
+└────────┴──────────┴────────────────────────────────────────┘
+```
+
+#### 제어 모드 (control_mode)
+
+| 값 | 모드 | 설명 |
+|----|------|------|
+| 0 | DISABLED | 채널 비활성화 |
+| 1 | OPEN_LOOP | 개방 루프 (PWM 직접 제어) |
+| 2 | TEMP_CONTROL | 온도 기반 PID 제어 |
+| 3 | FORCE_CONTROL | 힘 기반 PID 제어 |
+| 4 | POSITION_CONTROL | 위치 기반 제어 (미사용) |
+
+#### 전송 특성
+
+| 항목 | 값 |
+|------|-----|
+| **프레임 크기** | 130 bytes |
+| **전송 주기** | 12ms (83.33Hz) |
+| **UART 속도** | 115200 baud |
+| **전송 시간** | ~11.3ms (130 bytes × 10 bits ÷ 115200) |
+| **대역폭 사용률** | 94% (11.3ms ÷ 12ms) |
+| **에러 검출** | CRC-16 (CCITT) |
+
+#### 패킷 생성 흐름
+
+```c
+// TelemetryTask (12ms 주기)
+1. Comm_BuildTelemetryFrame(&frame)
+   - Header 설정 (0xAA, 0x55)
+   - Timestamp = HAL_GetTick()
+   - 6채널 SMA 상태 복사 (SMA_GetChannelState)
+   - 센서 데이터 복사 (Sensor_GetData)
+   - 팬 상태 복사
+   - System state 설정
+
+2. CRC-16 계산 (128 bytes, CRC 필드 제외)
+   frame->crc16 = Comm_CalculateCRC16(frame, 128)
+
+3. UART 전송 (uartTxMutex 보호)
+   HAL_UART_Transmit(huart3, frame, 130, timeout)
+```
+
+---
+
+### 명령 프로토콜
+
+#### 명령 형식 (텍스트 기반, ASCII)
+
+명령은 UART3를 통해 텍스트로 수신되며, CR/LF로 종료됩니다.
+
+**일반 형식**: `<COMMAND> <CH> <PARAM1> [PARAM2] [PARAM3]\r\n`
+
+#### 지원 명령어
+
+| 명령어 | 형식 | 설명 | 예시 |
+|--------|------|------|------|
+| **MODE** | `MODE <ch> <mode> <target>` | 제어 모드 변경 | `MODE 4 TEMP 50.0` |
+| **PWM** | `PWM <ch> <duty>` | PWM 직접 제어 (0-100%) | `PWM 5 30.5` |
+| **PID** | `PID <ch> <Kp> <Ki> <Kd>` | PID 게인 설정 | `PID 4 2.0 0.1 0.05` |
+| **STOP** | `STOP <ch\|ALL>` | 비상 정지 | `STOP 4` or `STOP ALL` |
+| **FAN** | `FAN <fan_id> <rpm>` | 팬 속도 설정 | `FAN 0 3000` |
+| **RESET** | `RESET <ch\|ALL>` | 채널 리셋 | `RESET 4` |
+| **STATUS** | `STATUS` | 상태 요청 | `STATUS` |
+
+#### MODE 명령 상세
+
+**형식**: `MODE <channel> <mode_name> <target_value>`
+
+**모드 이름**:
+- `DISABLED` 또는 `0`: 채널 비활성화
+- `OPEN` 또는 `1`: 개방 루프 (target_value 무시)
+- `TEMP` 또는 `2`: 온도 제어 (target_value = 목표 온도 °C)
+- `FORCE` 또는 `3`: 힘 제어 (target_value = 목표 힘 N)
+
+**예시**:
+```
+MODE 4 TEMP 50.0      # CH4를 온도 제어 모드, 목표 50°C
+MODE 5 FORCE 10.0     # CH5를 힘 제어 모드, 목표 10N
+MODE 4 OPEN 0         # CH4를 개방 루프 모드
+MODE 4 DISABLED 0     # CH4 비활성화
+```
+
+#### 명령 처리 흐름
+
+```
+UART3 RX Interrupt
+       ↓
+RTOS_UART_RxCallback(byte)
+       ↓
+osMessageQueuePut(uartRxQueue, byte)
+       ↓
+CommandTask: osMessageQueueGet()
+       ↓
+ProcessReceivedByte(byte)
+   - CR/LF 감지 시 완전한 명령 라인 조립
+       ↓
+osMessageQueuePut(cmdQueue, cmd_string)
+       ↓
+Comm_ParseCommand(cmd_string, &parsed_cmd)
+   - 명령어 파싱 (sscanf)
+   - 파라미터 유효성 검사
+       ↓
+Comm_ExecuteCommand(&parsed_cmd)
+   - SMA_SetMode()
+   - SMA_SetPWM()
+   - SMA_SetPIDGains()
+   - 등등
+       ↓
+Comm_SendResponse("OK\r\n")
+```
+
+#### 응답 메시지
+
+- **성공**: `OK\r\n`
+- **실패**: `ERROR: <reason>\r\n`
+- **상태**: `STATUS: <JSON formatted data>\r\n`
+
+#### 명령 버퍼
+
+| 버퍼 | 크기 | 용도 |
+|------|------|------|
+| `uartRxQueue` | 512 bytes | UART 바이트 버퍼 (ISR → Task) |
+| `cmdQueue` | 16 × 128 bytes | 명령 문자열 버퍼 (조립된 명령) |
+| `cmd_rx_buffer` | 128 bytes | 명령 조립용 임시 버퍼 |
+
+---
+
+### 통신 안전성
+
+#### 뮤텍스 보호
+
+- **uartTxMutex**: UART 송신 보호
+  - TelemetryTask: 텔레메트리 전송
+  - CommandTask: 응답 메시지 전송
+  - 타임아웃: 50ms
+
+#### 에러 처리
+
+1. **CRC 검증** (수신 측에서):
+   - 텔레메트리 프레임의 CRC-16 체크
+   - 불일치 시 프레임 폐기
+
+2. **명령 파싱 실패**:
+   - 잘못된 형식: `ERROR: Invalid command format\r\n`
+   - 범위 초과: `ERROR: Parameter out of range\r\n`
+
+3. **UART 전송 실패**:
+   - HAL_UART_Transmit 타임아웃 (100ms)
+   - 재시도 없음 (다음 주기에 새 데이터 전송)
+
+#### 동기화 이슈 해결
+
+**문제**: TelemetryTask와 CommandTask가 동시에 UART TX 사용
+**해결**: `uartTxMutex`로 상호 배제
+
+```c
+// TelemetryTask
+if (osMutexAcquire(uartTxMutex, 50) == osOK) {
+    Comm_SendTelemetry();
+    osMutexRelease(uartTxMutex);
+}
+
+// CommandTask
+if (osMutexAcquire(uartTxMutex, 50) == osOK) {
+    Comm_SendResponse("OK\r\n");
+    osMutexRelease(uartTxMutex);
+}
+```
+
+---
+
 ## 주요 파일 참조
 
 ### 핵심 파일
