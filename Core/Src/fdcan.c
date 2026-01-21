@@ -110,7 +110,7 @@ void MX_FDCAN2_Init(void)
   hfdcan2.Init.DataSyncJumpWidth = 3;
   hfdcan2.Init.DataTimeSeg1 = 21;
   hfdcan2.Init.DataTimeSeg2 = 3;
-  hfdcan2.Init.MessageRAMOffset = 1024;
+  hfdcan2.Init.MessageRAMOffset = 0;
   hfdcan2.Init.StdFiltersNbr = 1;
   hfdcan2.Init.ExtFiltersNbr = 0;
   hfdcan2.Init.RxFifo0ElmtsNbr = 16;
@@ -298,8 +298,8 @@ void FDCAN_Init(void)
         Error_Handler();
     }
 
-    // CAN2: 힘센서 (0x001~0x003)
-    FDCAN_Config_RX_range(&hfdcan2, CAN2_RXID_PWR_START, CAN2_RXID_PWR_END);
+    // CAN2: 힘센서 (0x001~0x003) + 임시로 변위센서 테스트 (0x100~0x10F)
+    FDCAN_Config_RX_range(&hfdcan2, 0x001, 0x10F);  // 0x001~0x10F 모두 수신
     if (HAL_FDCAN_Start(&hfdcan2) != HAL_OK)
     {
         Error_Handler();
