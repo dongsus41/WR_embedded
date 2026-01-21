@@ -64,8 +64,8 @@ all: main-build
 main-build: 260110_softrobot_tempfan_v3.3.elf secondary-outputs
 
 # Tool invocations
-260110_softrobot_tempfan_v3.3.elf 260110_softrobot_tempfan_v3.3.map: $(OBJS) $(USER_OBJS) C:\Users\Dongsu\Desktop\260110\WR_embedded\STM32H725RGVX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "260110_softrobot_tempfan_v3.3.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\Dongsu\Desktop\260110\WR_embedded\STM32H725RGVX_FLASH.ld" --specs=nosys.specs -Wl,-Map="260110_softrobot_tempfan_v3.3.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+260110_softrobot_tempfan_v3.3.elf 260110_softrobot_tempfan_v3.3.map: $(OBJS) $(USER_OBJS) C:\Users\Dongsu\STM32CubeIDE\workspace_2.0.0\260110_softrobot_tempfan_v3.3\STM32H725RGVX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "260110_softrobot_tempfan_v3.3.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\Users\Dongsu\STM32CubeIDE\workspace_2.0.0\260110_softrobot_tempfan_v3.3\STM32H725RGVX_FLASH.ld" --specs=nosys.specs -Wl,-Map="260110_softrobot_tempfan_v3.3.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
