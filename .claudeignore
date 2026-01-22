@@ -1,0 +1,25 @@
+# 빌드 출력 제외
+Debug/
+Release/
+
+# HAL 드라이버 제외 (필요시 헤더만 참조)
+Drivers/STM32H7xx_HAL_Driver/
+
+# 미들웨어 소스 제외 (FreeRTOS 등)
+Middlewares/
+
+# IDE 설정 파일 제외
+.settings/
+.project
+.cproject
+
+# 바이너리 및 오브젝트 파일 제외
+*.elf
+*.map
+*.o
+*.su
+*.list
+*.d
+
+# nRF70 서브모듈 (필요시만 참조)
+nrf70-bm/
