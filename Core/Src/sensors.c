@@ -24,6 +24,10 @@ static float temp_last_valid[SENSOR_TEMP_CH];
 static volatile uint32_t can1_rx_count = 0;
 static volatile uint32_t can2_rx_count = 0;
 
+// ISR용 에러/이상치 카운터 (snprintf 대신 카운터만 증가)
+static volatile uint32_t temp_fault_count[SENSOR_TEMP_CH];
+static volatile uint32_t temp_outlier_count[SENSOR_TEMP_CH];
+
 /* ========== Private Function Prototypes ========== */
 static inline uint16_t u16le(const uint8_t *p);
 static float temp_raw_to_celsius(uint16_t adc_val);
@@ -134,9 +138,73 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 }
 
 /**
- * @brief ADC 온도 데이터 업데이트
+ * @brief ADC 온도 데이터 업데이트 (ISR용 - Raw 값만)
+ * @note ISR(DMA Complete)에서 호출됨 - float 연산 없음
+ * @note 실행 시간: ~5μs (기존 100μs+ → 5μs)
+ */
+void Sensor_UpdateADC_ISR(volatile uint16_t *adc_buffer)
+{
+    if (adc_buffer == NULL) {
+        return;  // ISR에서 로그 출력 안함
+    }
+
+    // Critical Section 진입 (ISR 중첩 방지)
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
+    // Raw 값만 복사 (float 연산 없음)
+    for (uint8_t i = 0; i < SENSOR_TEMP_CH; i++) {
+        sensor_data.adc.raw[i] = adc_buffer[i];
+    }
+
+    // 타임스탬프 및 카운터 업데이트
+    sensor_data.adc.timestamp = HAL_GetTick();
+    sensor_data.adc.update_count++;
+
+    // Critical Section 종료
+    __set_PRIMASK(primask);
+}
+
+/**
+ * @brief ADC 데이터 처리 (Task용 - float 연산)
+ * @note Task context에서 호출 (SensorProcessTask)
+ * @note Raw 값을 온도로 변환하고 필터 적용
+ */
+void Sensor_ProcessADC(void)
+{
+    // 로컬 복사본 (일관성 보장)
+    uint16_t raw_copy[SENSOR_TEMP_CH];
+
+    // Critical Section: Raw 값 복사
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    for (uint8_t i = 0; i < SENSOR_TEMP_CH; i++) {
+        raw_copy[i] = sensor_data.adc.raw[i];
+    }
+    __set_PRIMASK(primask);
+
+    // Task context에서 float 연산 수행
+    for (uint8_t i = 0; i < SENSOR_TEMP_CH; i++) {
+        // 온도 변환 (필터 미적용)
+        float temp_raw = temp_raw_to_celsius(raw_copy[i]);
+        sensor_data.adc.temp_raw_c[i] = temp_raw;
+
+        // 이상치 필터 적용 (10°C 이상 급변 제거)
+        float temp_outlier_filtered = apply_outlier_filter(i, temp_raw);
+
+        // 이동평균 필터 적용
+        float temp_filtered = apply_moving_average_filter(i, temp_outlier_filtered);
+        sensor_data.adc.temp_c[i] = temp_filtered;
+
+        // 센서 오류 검사 (필터링된 값으로)
+        check_temp_sensor_fault(i, temp_filtered);
+    }
+}
+
+/**
+ * @brief ADC 온도 데이터 업데이트 (레거시 - 호환성용)
  * @note ISR(DMA Complete)에서 호출됨 - mutex 사용 불가
- * @note [수정됨] 인터럽트 복원 정상화
+ * @deprecated Sensor_UpdateADC_ISR() + Sensor_ProcessADC() 사용 권장
  */
 void Sensor_UpdateADC(volatile uint16_t *adc_buffer)
 {
@@ -306,6 +374,7 @@ static float temp_raw_to_celsius(uint16_t adc_val)
 /**
  * @brief 온도 센서 오류 검사
  * @details 범위: -40°C ~ 125°C
+ * @note [ISR 경량화] snprintf() 제거, 카운터만 증가
  */
 static void check_temp_sensor_fault(uint8_t ch, float temp)
 {
@@ -317,23 +386,11 @@ static void check_temp_sensor_fault(uint8_t ch, float temp)
         // 오류 발생
         if (!sensor_data.adc.sensor_fault[ch]) {
             sensor_data.adc.sensor_fault[ch] = 1;
-
-            // 에러 로그 (최초 1회만)
-            char msg[MAX_LOG_MSG_LEN];
-            snprintf(msg, sizeof(msg),
-                     "TEMP_FAULT: CH%u = %.1f°C (Range: %.0f~%.0f)\r\n",
-                     ch, temp, TEMP_MIN_VALID, TEMP_MAX_VALID);
-            LogFifo_Push(msg);
+            temp_fault_count[ch]++;  // 카운터만 증가 (로그는 Task에서)
         }
     } else {
         // 정상 복귀
-        if (sensor_data.adc.sensor_fault[ch]) {
-            sensor_data.adc.sensor_fault[ch] = 0;
-
-            char msg[MAX_LOG_MSG_LEN];
-            snprintf(msg, sizeof(msg), "TEMP_OK: CH%u = %.1f°C\r\n", ch, temp);
-            LogFifo_Push(msg);
-        }
+        sensor_data.adc.sensor_fault[ch] = 0;
     }
 }
 

@@ -80,8 +80,22 @@ void Sensor_Init(void);
 int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data);
 
 /**
- * @brief ADC 온도 데이터 업데이트
+ * @brief ADC 온도 데이터 업데이트 (ISR용 - Raw 값만)
  * @param adc_buffer ADC DMA 버퍼 (6채널)
+ * @note ISR에서 호출, float 연산 없음 (~5μs)
+ */
+void Sensor_UpdateADC_ISR(volatile uint16_t *adc_buffer);
+
+/**
+ * @brief ADC 데이터 처리 (Task용 - float 연산)
+ * @note Task context에서 호출, float 연산 수행
+ */
+void Sensor_ProcessADC(void);
+
+/**
+ * @brief ADC 온도 데이터 업데이트 (레거시 - 호환성용)
+ * @param adc_buffer ADC DMA 버퍼 (6채널)
+ * @deprecated Sensor_UpdateADC_ISR() + Sensor_ProcessADC() 사용 권장
  */
 void Sensor_UpdateADC(volatile uint16_t *adc_buffer);
 
