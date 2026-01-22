@@ -1116,6 +1116,49 @@ if (osMutexAcquire(uartTxMutex, 50) == osOK) {
 
 ---
 
+## 아키텍처 분석 및 개선 방안
+
+### ⚠️ 중요 발견사항
+
+본 문서 작성 과정에서 현재 RTOS 구현의 **잠재적 문제점**들이 식별되었습니다:
+
+1. **UART Blocking 이슈** 🚨
+   - TelemetryTask가 `HAL_UART_Transmit()` (blocking)을 사용하여 **11.3ms 동안 CPU 독점**
+   - RTOS의 멀티태스킹 이점을 충분히 활용하지 못함
+   - CPU 사용률: 94% (12ms 중 11.3ms)
+
+2. **우선순위 역전 위험**
+   - TelemetryTask(High)가 뮤텍스를 점유한 상태에서 blocking → ControlTask(Realtime) 지연 가능
+
+3. **타이밍 충돌**
+   - 10ms와 12ms 주기의 최소공배수(60ms)마다 충돌 발생
+
+### 📋 상세 분석 문서
+
+위 문제들에 대한 **면밀한 분석**과 **구체적인 개선 방안**은 별도 문서에 상세히 기술되어 있습니다:
+
+**→ [RTOS_Issues_and_Improvements.md](./RTOS_Issues_and_Improvements.md)**
+
+이 문서에는 다음 내용이 포함되어 있습니다:
+- ✅ 8가지 식별된 문제점 (Critical/High/Medium/Low 우선순위 분류)
+- ✅ 각 문제에 대한 구체적인 개선 방안 (코드 예제 포함)
+- ✅ 우선순위별 구현 로드맵 (Phase 1-4)
+- ✅ 예상 효과 (CPU 사용률 94% → 12% 감소)
+- ✅ 검증 계획 및 테스트 전략
+
+### 주요 개선 방안 요약
+
+**Phase 1 (최우선, 1-2주)**:
+- UART DMA 전환 → CPU 사용률 82% 절감
+- TelemetryTask 실행 시간: 11.3ms → 1.5ms
+
+**기대 효과**:
+- WiFi/Command 태스크 실행 기회: 6% → 88%
+- ControlTask 지터 감소: 0-4.3ms → 0-0.5ms
+- CPU idle 시간: 0% → 53%
+
+---
+
 ## 결론
 
 본 시스템은 FreeRTOS를 기반으로 하는 견고한 실시간 제어 아키텍처로, 다음과 같은 특징을 가집니다:
@@ -1127,8 +1170,17 @@ if (osMutexAcquire(uartTxMutex, 50) == osOK) {
 
 시스템은 6채널 SMA 기반 소프트 로봇 웨어러블 제어를 위해 설계되었으며, 온도/힘/변위 센서를 통합하여 정밀한 피드백 제어를 수행합니다.
 
+**개선 여지**: 현재 UART Blocking 방식을 DMA로 전환하면 CPU 효율성을 대폭 향상시킬 수 있습니다. 상세한 내용은 [RTOS_Issues_and_Improvements.md](./RTOS_Issues_and_Improvements.md)를 참조하세요.
+
 ---
 
-**문서 버전**: 1.0
-**최종 업데이트**: 2026-01-20
+## 관련 문서
+
+- **[RTOS_Issues_and_Improvements.md](./RTOS_Issues_and_Improvements.md)**: 아키텍처 분석 및 개선 방안
+- **[Communication_Protocol_Spec.md](./Communication_Protocol_Spec.md)**: 통신 프로토콜 상세 스펙 (예정)
+
+---
+
+**문서 버전**: 1.1
+**최종 업데이트**: 2026-01-22
 **작성자**: Claude (AI Assistant)
