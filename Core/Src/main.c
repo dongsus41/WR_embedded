@@ -136,6 +136,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
+/**
+ * @brief UART DMA 전송 완료 콜백
+ * @note DMA 전송 완료 시 자동 호출
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3) {
+        // 통신 프로토콜에 전송 완료 알림
+        Comm_UART_TxCpltCallback();
+    }
+}
 
 /* USER CODE END 0 */
 

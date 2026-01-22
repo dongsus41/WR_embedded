@@ -45,7 +45,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define CONTROL_TASK_PERIOD_MS      10      // 100Hz 제어 루프
-#define TELEMETRY_TASK_PERIOD_MS    12      // ~80Hz 텔레메트리 (12.5ms)
+#define TELEMETRY_TASK_PERIOD_MS    20      // 50Hz 텔레메트리 (타이밍 충돌 해결)
 #define CMD_BUFFER_SIZE             128     // 명령 버퍼 크기
 /* USER CODE END PD */
 
@@ -64,6 +64,13 @@
 static char cmd_rx_buffer[CMD_BUFFER_SIZE];
 static uint16_t cmd_rx_index = 0;
 
+/* Definitions for SensorProcessTask (USER CODE - CubeMX 보존) */
+osThreadId_t SensorProcessTaskHandle;
+const osThreadAttr_t SensorProcessTask_attributes = {
+  .name = "SensorProcess",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
 /* USER CODE END Variables */
 /* Definitions for CommandTask */
 osThreadId_t CommandTaskHandle;
@@ -84,7 +91,7 @@ osThreadId_t TelemetryTaskHandle;
 const osThreadAttr_t TelemetryTask_attributes = {
   .name = "TelemetryTask",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+  .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for NRF70_Task */
 osThreadId_t NRF70_TaskHandle;
@@ -123,10 +130,21 @@ osMutexId_t i2cMutexHandle;
 const osMutexAttr_t i2cMutex_attributes = {
   .name = "i2cMutex"
 };
+/* Definitions for adcDataReadySem */
+osSemaphoreId_t adcDataReadySemHandle;
+const osSemaphoreAttr_t adcDataReadySem_attributes = {
+  .name = "adcDataReadySem"
+};
+/* Definitions for uartTxCompleteSem */
+osSemaphoreId_t uartTxCompleteSemHandle;
+const osSemaphoreAttr_t uartTxCompleteSem_attributes = {
+  .name = "uartTxCompleteSem"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void ProcessReceivedByte(uint8_t byte);
+void StartSensorProcessTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartCommandTask(void *argument);
@@ -183,8 +201,15 @@ void MX_FREERTOS_Init(void) {
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* creation of adcDataReadySem */
+  adcDataReadySemHandle = osSemaphoreNew(1, 0, &adcDataReadySem_attributes);
+
+  /* creation of uartTxCompleteSem */
+  uartTxCompleteSemHandle = osSemaphoreNew(1, 1, &uartTxCompleteSem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
+  /* 세마포어는 CubeMX에서 생성됨 (adcDataReadySemHandle, uartTxCompleteSemHandle) */
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* USER CODE BEGIN RTOS_TIMERS */
@@ -216,7 +241,8 @@ void MX_FREERTOS_Init(void) {
   NRF70_TaskHandle = osThreadNew(NRF70_TestTask, NULL, &NRF70_Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
+  /* creation of SensorProcessTask */
+  SensorProcessTaskHandle = osThreadNew(StartSensorProcessTask, NULL, &SensorProcessTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -440,15 +466,17 @@ void RTOS_UART_RxCallback(uint8_t byte)
 
 /**
  * @brief ADC 변환 완료 콜백에서 호출 (ISR Context)
+ * @note [수정됨] ISR 경량화 - Raw 복사만 수행, float 연산은 SensorProcessTask에서
  */
 void RTOS_ADC_ConvCpltCallback(void)
 {
-    // 센서 데이터 업데이트 (ISR에서 직접 수행 - 빠른 처리)
     extern volatile uint16_t buf_adc1[];
-    Sensor_UpdateADC(buf_adc1);
 
-    // ControlTask에 알림 (선택적)
-    // osThreadFlagsSet(ControlTaskHandle, NOTIFY_ADC_COMPLETE);
+    // ISR: Raw 값만 복사 (~5μs, float 연산 없음)
+    Sensor_UpdateADC_ISR(buf_adc1);
+
+    // 세마포어 릴리즈 (SensorProcessTask 깨움)
+    osSemaphoreRelease(adcDataReadySemHandle);
 }
 
 /**
@@ -465,8 +493,27 @@ void RTOS_FDCAN_RxCallback(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
     // osThreadFlagsSet(ControlTaskHandle, NOTIFY_CAN_RX);
 }
 
-
-
+/**
+ * @brief SensorProcessTask - ADC 데이터 처리 (float 연산)
+ * @param argument: Not used
+ * @note ISR에서 Raw 복사 후 이 Task에서 온도 변환/필터링 수행
+ */
+void StartSensorProcessTask(void *argument)
+{
+    for(;;)
+    {
+        // ADC 완료 세마포어 대기 (무한 대기)
+        if (osSemaphoreAcquire(adcDataReadySemHandle, osWaitForever) == osOK)
+        {
+            // Task context에서 float 연산 수행 (~100μs)
+            // - 온도 변환 (ADC raw → °C)
+            // - 이상치 필터
+            // - 이동평균 필터
+            // - 센서 오류 검사
+            Sensor_ProcessADC();
+        }
+    }
+}
 
 /* USER CODE END Application */
 

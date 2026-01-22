@@ -165,6 +165,12 @@ int32_t Comm_SendTelemetry_Safe(void);
  */
 void Comm_SendResponse_Unsafe(const char *format, ...);
 
+/**
+ * @brief UART DMA 전송 완료 콜백
+ * @note main.c의 HAL_UART_TxCpltCallback()에서 호출
+ */
+void Comm_UART_TxCpltCallback(void);
+
 #ifdef __cplusplus
 }
 #endif

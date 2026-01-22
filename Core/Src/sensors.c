@@ -140,15 +140,15 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 /**
  * @brief ADC 온도 데이터 업데이트 (ISR용 - Raw 값만)
  * @note ISR(DMA Complete)에서 호출됨 - float 연산 없음
- * @note 실행 시간: ~5μs (기존 100μs+ → 5μs)
+ * @note 실행 시간: ~5μs (Raw 복사만)
  */
 void Sensor_UpdateADC_ISR(volatile uint16_t *adc_buffer)
 {
     if (adc_buffer == NULL) {
-        return;  // ISR에서 로그 출력 안함
+        return;  // ISR에서는 로그 출력 안함
     }
 
-    // Critical Section 진입 (ISR 중첩 방지)
+    // Critical Section 진입
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
 
@@ -167,15 +167,14 @@ void Sensor_UpdateADC_ISR(volatile uint16_t *adc_buffer)
 
 /**
  * @brief ADC 데이터 처리 (Task용 - float 연산)
- * @note Task context에서 호출 (SensorProcessTask)
- * @note Raw 값을 온도로 변환하고 필터 적용
+ * @note Task context에서 호출, float 연산 수행
+ * @note 실행 시간: ~100μs (float 변환, 필터링)
  */
 void Sensor_ProcessADC(void)
 {
-    // 로컬 복사본 (일관성 보장)
+    // 로컬 복사본 생성 (critical section 최소화)
     uint16_t raw_copy[SENSOR_TEMP_CH];
 
-    // Critical Section: Raw 값 복사
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
     for (uint8_t i = 0; i < SENSOR_TEMP_CH; i++) {
@@ -183,17 +182,19 @@ void Sensor_ProcessADC(void)
     }
     __set_PRIMASK(primask);
 
-    // Task context에서 float 연산 수행
+    // float 연산 수행 (Critical Section 밖에서)
     for (uint8_t i = 0; i < SENSOR_TEMP_CH; i++) {
         // 온도 변환 (필터 미적용)
         float temp_raw = temp_raw_to_celsius(raw_copy[i]);
-        sensor_data.adc.temp_raw_c[i] = temp_raw;
 
         // 이상치 필터 적용 (10°C 이상 급변 제거)
         float temp_outlier_filtered = apply_outlier_filter(i, temp_raw);
 
         // 이동평균 필터 적용
         float temp_filtered = apply_moving_average_filter(i, temp_outlier_filtered);
+
+        // 결과 저장 (atomic 32-bit write)
+        sensor_data.adc.temp_raw_c[i] = temp_raw;
         sensor_data.adc.temp_c[i] = temp_filtered;
 
         // 센서 오류 검사 (필터링된 값으로)
@@ -374,7 +375,7 @@ static float temp_raw_to_celsius(uint16_t adc_val)
 /**
  * @brief 온도 센서 오류 검사
  * @details 범위: -40°C ~ 125°C
- * @note [ISR 경량화] snprintf() 제거, 카운터만 증가
+ * @note [수정됨] snprintf 제거 - 카운터만 증가 (ISR 경량화)
  */
 static void check_temp_sensor_fault(uint8_t ch, float temp)
 {
@@ -386,11 +387,14 @@ static void check_temp_sensor_fault(uint8_t ch, float temp)
         // 오류 발생
         if (!sensor_data.adc.sensor_fault[ch]) {
             sensor_data.adc.sensor_fault[ch] = 1;
-            temp_fault_count[ch]++;  // 카운터만 증가 (로그는 Task에서)
+            temp_fault_count[ch]++;  // 카운터만 증가 (로그는 별도 Task에서)
         }
     } else {
         // 정상 복귀
-        sensor_data.adc.sensor_fault[ch] = 0;
+        if (sensor_data.adc.sensor_fault[ch]) {
+            sensor_data.adc.sensor_fault[ch] = 0;
+            // 복귀 시에도 카운터 활용 가능 (필요시)
+        }
     }
 }
 
@@ -400,6 +404,7 @@ static void check_temp_sensor_fault(uint8_t ch, float temp)
  * @param new_temp 새로운 온도 값 (°C)
  * @return 필터링된 온도 (°C) - 이상치이면 이전 값 유지
  * @details 이전 값 대비 10°C 이상 변화 시 노이즈로 판단하고 이전 값 반환
+ * @note [수정됨] snprintf 제거 - 카운터만 증가 (ISR 경량화)
  */
 static float apply_outlier_filter(uint8_t ch, float new_temp)
 {
@@ -419,13 +424,8 @@ static float apply_outlier_filter(uint8_t ch, float new_temp)
 
     // 10°C 이상 급변하면 이상치로 판단
     if (abs_delta > TEMP_OUTLIER_THRESHOLD) {
-        // 이상치 - 이전 값 유지
-        char msg[MAX_LOG_MSG_LEN];
-        snprintf(msg, sizeof(msg),
-                 "TEMP_OUTLIER: CH%u = %.1f°C (prev=%.1f°C, delta=%.1f°C)\r\n",
-                 ch, new_temp, temp_last_valid[ch], delta);
-        LogFifo_Push(msg);
-
+        // 이상치 - 카운터만 증가 (로그는 별도 Task에서)
+        temp_outlier_count[ch]++;
         return temp_last_valid[ch];  // 이전 유효 값 반환
     }
 

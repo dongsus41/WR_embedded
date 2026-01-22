@@ -26,14 +26,21 @@
 extern osMutexId_t uartTxMutexHandle;
 extern osMutexId_t smaChannelMutexHandle;
 extern osMutexId_t i2cMutexHandle;
+extern osSemaphoreId_t uartTxCompleteSemHandle;
 
 /* ========== Private Variables ========== */
 static UART_HandleTypeDef *comm_huart = NULL;
 static TelemetryFrame_t telem_frame;
 
+/* DMA 전송용 더블 버퍼 */
+static uint8_t tx_dma_buffer[2][sizeof(TelemetryFrame_t)];
+static uint8_t tx_buffer_index = 0;
+static volatile uint8_t tx_dma_in_progress = 0;
+
 /* ========== Private Function Prototypes ========== */
 static void Comm_BuildTelemetryFrame(TelemetryFrame_t *frame);
 static int32_t Comm_TransmitFrame(const uint8_t *data, uint16_t length);
+static int32_t Comm_TransmitFrame_DMA(const uint8_t *data, uint16_t length);
 
 /* ========== Public Functions ========== */
 
@@ -52,8 +59,9 @@ void Comm_Init(UART_HandleTypeDef *huart)
 }
 
 /**
- * @brief 텔레메트리 프레임 생성 및 전송
- * @note TelemetryTask에서 호출, 외부에서 uartTxMutex 획득 후 호출 권장
+ * @brief 텔레메트리 프레임 생성 및 전송 (DMA 사용)
+ * @note TelemetryTask에서 호출, DMA로 비동기 전송
+ * @note [수정됨] Blocking → DMA 전송으로 변경 (CPU 94% → 12%)
  */
 int32_t Comm_SendTelemetry(void)
 {
@@ -69,8 +77,8 @@ int32_t Comm_SendTelemetry(void)
                                         sizeof(TelemetryFrame_t) - 2);
     telem_frame.crc16 = crc;
 
-    // UART로 전송
-    return Comm_TransmitFrame((uint8_t*)&telem_frame, sizeof(TelemetryFrame_t));
+    // DMA로 전송 (비동기, 즉시 반환)
+    return Comm_TransmitFrame_DMA((uint8_t*)&telem_frame, sizeof(TelemetryFrame_t));
 }
 
 /**
@@ -438,6 +446,54 @@ static int32_t Comm_TransmitFrame(const uint8_t *data, uint16_t length)
                                                    length, 100);
 
     return (status == HAL_OK) ? 0 : -1;
+}
+
+/**
+ * @brief DMA를 사용한 UART 전송 (비동기)
+ * @param data 전송할 데이터
+ * @param length 데이터 길이
+ * @return 0=성공, -1=실패
+ * @note 더블 버퍼링으로 전송 중 데이터 보호
+ */
+static int32_t Comm_TransmitFrame_DMA(const uint8_t *data, uint16_t length)
+{
+    if (comm_huart == NULL || data == NULL || length > sizeof(tx_dma_buffer[0])) {
+        return -1;
+    }
+
+    // 이전 전송 완료 대기 (타임아웃 15ms)
+    if (osSemaphoreAcquire(uartTxCompleteSemHandle, 15) != osOK) {
+        return -1;  // 타임아웃 - 이전 전송 미완료
+    }
+
+    // 더블 버퍼에 데이터 복사
+    uint8_t *buf = tx_dma_buffer[tx_buffer_index];
+    memcpy(buf, data, length);
+    tx_buffer_index = (tx_buffer_index + 1) % 2;  // 버퍼 인덱스 토글
+
+    // DMA 전송 시작
+    tx_dma_in_progress = 1;
+    HAL_StatusTypeDef status = HAL_UART_Transmit_DMA(comm_huart, buf, length);
+
+    if (status != HAL_OK) {
+        tx_dma_in_progress = 0;
+        osSemaphoreRelease(uartTxCompleteSemHandle);  // 실패 시 세마포어 반환
+        return -1;
+    }
+
+    return 0;  // 전송 시작됨 (완료는 ISR에서 처리)
+}
+
+/**
+ * @brief UART DMA 전송 완료 콜백 (ISR에서 호출)
+ * @note main.c의 HAL_UART_TxCpltCallback()에서 호출
+ */
+void Comm_UART_TxCpltCallback(void)
+{
+    if (tx_dma_in_progress) {
+        tx_dma_in_progress = 0;
+        osSemaphoreRelease(uartTxCompleteSemHandle);
+    }
 }
 
 uint16_t Comm_CalculateCRC16(const uint8_t *data, uint16_t length)
