@@ -3,7 +3,10 @@
     "allow": [
       "Bash(wc:*)",
       "Bash(grep:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(make:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: RTOS 최적화 - ISR 경량화, UART DMA, 타이밍 개선\n\nPhase 1: ISR 경량화\n- Sensor_UpdateADC_ISR\\(\\): ISR에서 raw 값만 복사 \\(100μs → 5μs\\)\n- Sensor_ProcessADC\\(\\): Task에서 float 연산 수행\n- SensorProcessTask 추가 \\(세마포어 동기화\\)\n- check_temp_sensor_fault\\(\\), apply_outlier_filter\\(\\)에서 snprintf 제거\n\nPhase 1: UART DMA 전환\n- Comm_TransmitFrame_DMA\\(\\): 더블 버퍼링 + DMA 전송\n- HAL_UART_TxCpltCallback\\(\\) 추가\n- TelemetryTask CPU 점유: 94% → 6% \\(11.3ms → 1.2ms\\)\n\nPhase 2: 타이밍/우선순위 최적화\n- TelemetryTask 주기: 12ms → 20ms \\(타이밍 충돌 제거\\)\n- TelemetryTask 우선순위: High\\(40\\) → Normal3\\(27\\)\n\n성능 개선 결과:\n- ISR 실행 시간: 95% 감소\n- TelemetryTask 실행 시간: 89% 감소\n- CPU 여유 시간: 0.7ms → 18.8ms\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

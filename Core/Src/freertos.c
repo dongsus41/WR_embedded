@@ -64,13 +64,7 @@
 static char cmd_rx_buffer[CMD_BUFFER_SIZE];
 static uint16_t cmd_rx_index = 0;
 
-/* Definitions for SensorProcessTask (USER CODE - CubeMX 보존) */
-osThreadId_t SensorProcessTaskHandle;
-const osThreadAttr_t SensorProcessTask_attributes = {
-  .name = "SensorProcess",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
-};
+/* SensorProcessTask는 CubeMX에서 생성됨 */
 /* USER CODE END Variables */
 /* Definitions for CommandTask */
 osThreadId_t CommandTaskHandle;
@@ -99,6 +93,13 @@ const osThreadAttr_t NRF70_Task_attributes = {
   .name = "NRF70_Task",
   .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
+};
+/* Definitions for SensorPrcsTask */
+osThreadId_t SensorPrcsTaskHandle;
+const osThreadAttr_t SensorPrcsTask_attributes = {
+  .name = "SensorPrcsTask",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for uartRxQueue */
 osMessageQueueId_t uartRxQueueHandle;
@@ -144,13 +145,13 @@ const osSemaphoreAttr_t uartTxCompleteSem_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 static void ProcessReceivedByte(uint8_t byte);
-void StartSensorProcessTask(void *argument);
 /* USER CODE END FunctionPrototypes */
 
 void StartCommandTask(void *argument);
 void StartControlTask(void *argument);
 void StartTelemetryTask(void *argument);
 void NRF70_TestTask(void *argument);
+void StartSensorProcessTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -240,9 +241,11 @@ void MX_FREERTOS_Init(void) {
   /* creation of NRF70_Task */
   NRF70_TaskHandle = osThreadNew(NRF70_TestTask, NULL, &NRF70_Task_attributes);
 
+  /* creation of SensorPrcsTask */
+  SensorPrcsTaskHandle = osThreadNew(StartSensorProcessTask, NULL, &SensorPrcsTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
-  /* creation of SensorProcessTask */
-  SensorProcessTaskHandle = osThreadNew(StartSensorProcessTask, NULL, &SensorProcessTask_attributes);
+  /* SensorProcessTask는 CubeMX에서 생성됨 */
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -411,6 +414,33 @@ void NRF70_TestTask(void *argument)
   /* USER CODE END NRF70_TestTask */
 }
 
+/* USER CODE BEGIN Header_StartSensorProcessTask */
+/**
+* @brief Function implementing the SensorPrcsTask thread.
+* @param argument: Not used
+* @note ISR에서 Raw 복사 후 이 Task에서 온도 변환/필터링 수행
+*/
+/* USER CODE END Header_StartSensorProcessTask */
+__weak void StartSensorProcessTask(void *argument)
+{
+  /* USER CODE BEGIN StartSensorProcessTask */
+  /* Infinite loop */
+  for(;;)
+  {
+      // ADC 완료 세마포어 대기 (무한 대기)
+      if (osSemaphoreAcquire(adcDataReadySemHandle, osWaitForever) == osOK)
+      {
+          // Task context에서 float 연산 수행 (~100μs)
+          // - 온도 변환 (ADC raw → °C)
+          // - 이상치 필터
+          // - 이동평균 필터
+          // - 센서 오류 검사
+          Sensor_ProcessADC();
+      }
+  }
+  /* USER CODE END StartSensorProcessTask */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 /**
@@ -491,28 +521,6 @@ void RTOS_FDCAN_RxCallback(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 
     // ControlTask에 알림 (선택적)
     // osThreadFlagsSet(ControlTaskHandle, NOTIFY_CAN_RX);
-}
-
-/**
- * @brief SensorProcessTask - ADC 데이터 처리 (float 연산)
- * @param argument: Not used
- * @note ISR에서 Raw 복사 후 이 Task에서 온도 변환/필터링 수행
- */
-void StartSensorProcessTask(void *argument)
-{
-    for(;;)
-    {
-        // ADC 완료 세마포어 대기 (무한 대기)
-        if (osSemaphoreAcquire(adcDataReadySemHandle, osWaitForever) == osOK)
-        {
-            // Task context에서 float 연산 수행 (~100μs)
-            // - 온도 변환 (ADC raw → °C)
-            // - 이상치 필터
-            // - 이동평균 필터
-            // - 센서 오류 검사
-            Sensor_ProcessADC();
-        }
-    }
 }
 
 /* USER CODE END Application */
