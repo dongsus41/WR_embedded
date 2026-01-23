@@ -291,6 +291,10 @@ void HAL_FDCAN_MspDeInit(FDCAN_HandleTypeDef* fdcanHandle)
 
 void FDCAN_Init(void)
 {
+    // CAN 트랜시버 Standby 해제 (LOW = Normal mode)
+    HAL_GPIO_WritePin(CAN1_STB_GPIO_Port, CAN1_STB_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(CAN2_STB_GPIO_Port, CAN2_STB_Pin, GPIO_PIN_RESET);
+
     // CAN1: 변위센서 (0x100~0x10F)
     FDCAN_Config_RX_range(&hfdcan1, CAN1_RXID_DISP_START, CAN1_RXID_DISP_END);
     if (HAL_FDCAN_Start(&hfdcan1) != HAL_OK)

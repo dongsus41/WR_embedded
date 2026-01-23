@@ -61,42 +61,38 @@ void Sensor_Init(void)
 /**
  * @brief CAN 센서 데이터 업데이트
  * @note ISR(FDCAN RX)에서 호출됨 - mutex 사용 불가
- * @note [수정됨] 인터럽트 복원 정상화
+ * @note [최적화] ISR 컨텍스트에서 호출되므로 critical section 제거
+ *       - 32비트 값 쓰기는 Cortex-M7에서 atomic
+ *       - Task에서 읽을 때는 mutex 사용
  */
 int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
 {
     if (rx_header == NULL || rx_data == NULL) {
-        REPORT_ERROR_MSG("NULL pointer");
-        return -1;
-    }
-
-    // 데이터 길이 검증 (8바이트 고정)
-    if (rx_header->DataLength != FDCAN_DLC_BYTES_8) {
-        REPORT_ERROR_MSG("Invalid CAN data length");
         return -1;
     }
 
     uint32_t can_id = rx_header->Identifier;
 
-    // Critical Section 진입
-    uint32_t primask = __get_PRIMASK();
-    __disable_irq();
-
-    // 0x100~0x10F 변위센서 처리 (CAN1)
+    // 0x100~0x10F 변위센서 처리 (CAN1) - 2바이트
     if (can_id >= 0x100 && can_id <= 0x10F) {
-        can1_rx_count++;  // DEBUG: 카운터 증가
-        uint8_t idx = can_id - 0x100;  // 0~15 인덱스
+        if (rx_header->DataLength < FDCAN_DLC_BYTES_2) {
+            return -1;
+        }
+        can1_rx_count++;
+        uint8_t idx = can_id - 0x100;
         sensor_data.can.displacement[idx] = u16le(&rx_data[0]);
         sensor_data.can.displacement_valid_flag |= (1U << idx);
         sensor_data.can.timestamp = HAL_GetTick();
-        __set_PRIMASK(primask);
         return 0;
     }
 
-    // DEBUG: CAN2 메시지 카운트
+    // 힘센서 (CAN2) - 8바이트 필요
+    if (rx_header->DataLength != FDCAN_DLC_BYTES_8) {
+        return -1;
+    }
+
     can2_rx_count++;
 
-    // 힘센서 처리 (CAN2)
     switch (can_id) {
         case CAN_ID_PWR_FOREARM:
             sensor_data.can.biotorq[SENSOR_CH_FOREARM_L] = u16le(&rx_data[0]);
@@ -123,17 +119,10 @@ int32_t Sensor_UpdateCAN(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_data)
             break;
 
         default:
-            // [수정] 인터럽트 복원 후 리턴
-            __set_PRIMASK(primask);
-            return -1;  // 알 수 없는 CAN ID
+            return -1;
     }
 
-    // 타임스탬프 업데이트
     sensor_data.can.timestamp = HAL_GetTick();
-
-    // [수정] Critical Section 종료 - 인터럽트 복원
-    __set_PRIMASK(primask);
-
     return 0;
 }
 

@@ -86,23 +86,34 @@ extern void RTOS_FDCAN_RxCallback(FDCAN_RxHeaderTypeDef *rx_header, uint8_t *rx_
 /* USER CODE BEGIN 0 */
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
-	LED2_toggle;
 	if((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) == RESET)
     {
         return;
     }
 
-    /* Retrieve Rx messages from RX FIFO0 */
+    /* FIFO의 모든 메시지 처리 (오버런 방지) */
 	FDCAN_RxHeaderTypeDef rx_header;
 	uint8_t rx_data[8];
-    if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rx_header, rx_data) != HAL_OK)
+	uint8_t msg_count = 0;
+	const uint8_t MAX_MSGS_PER_ISR = 8;  // ISR당 최대 처리 개수
+
+    while (msg_count < MAX_MSGS_PER_ISR)
     {
-        Error_Handler();
-        return;
+        // FIFO에서 메시지 가져오기
+        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &rx_header, rx_data) != HAL_OK)
+        {
+            break;  // FIFO 비었거나 에러 → 루프 탈출
+        }
+
+        // 센서 데이터 업데이트
+        RTOS_FDCAN_RxCallback(&rx_header, rx_data);
+        msg_count++;
     }
-    //force sensor update
-    //Sensor_UpdateCAN(&rx_header, rx_data);
-    RTOS_FDCAN_RxCallback(&rx_header, rx_data);
+
+    // 처리된 메시지가 있으면 LED 토글 (디버그용)
+    if (msg_count > 0) {
+        LED2_toggle;
+    }
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
